@@ -102,8 +102,6 @@ pub fn init() !Self {
     );
     if (win.FAILED(hr)) return error.GetMixFormatFailed;
 
-    std.debug.print("{any}\n", .{pwfx.*});
-
     const hnsRequestedDuration = refTimesPerSec;
 
     hr = pAudioClient.lpVtbl.*.Initialize.?(

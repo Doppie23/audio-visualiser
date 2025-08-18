@@ -22,8 +22,6 @@ pub fn main() !void {
     );
     defer audio_buffer.deinit();
 
-    std.debug.print("{d}\n", .{audio_buffer.len});
-
     if (wasapi.pwfx.wBitsPerSample != 32) {
         return error.UnsupportedBitsPerSample;
     }
@@ -49,27 +47,29 @@ pub fn main() !void {
             }
         }
 
-        const height = 100;
+        const height = 200;
         const starty = 450 / 2;
 
         raylib.BeginDrawing();
+        defer raylib.EndDrawing();
+
+        if (raylib.IsMouseButtonDown(raylib.MOUSE_BUTTON_LEFT)) {
+            continue;
+        }
+
         raylib.ClearBackground(raylib.RAYWHITE);
 
-        const boost = 100;
-
+        const boost = 10;
         var x: i32 = 1;
-        var i: usize = audio_buffer.len - width;
-        for (0..width - 1) |_| {
-            defer i += 1;
 
-            const sample = audio_buffer.get(i);
+        const down_sampled = try audio_buffer.downSample(gpa, width);
+        defer gpa.free(down_sampled);
 
-            const length: i32 = @intFromFloat(sample * boost * @as(f32, @floatFromInt(height)));
+        for (down_sampled) |sample| {
+            const length: i32 = @intFromFloat(std.math.clamp(sample * boost, -1.0, 1.0) * @as(f32, @floatFromInt(height)));
             raylib.DrawLine(x, starty, x, starty + length, raylib.BLUE);
             x += 1;
         }
-
-        raylib.EndDrawing();
     }
 
     raylib.CloseWindow();

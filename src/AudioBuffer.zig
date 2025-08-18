@@ -61,3 +61,27 @@ pub fn writeSingle(self: *Self, sample: f32) void {
 pub fn get(self: Self, index: usize) f32 {
     return self.buffer[(self.write_index + index) % self.len];
 }
+
+/// returns all the samples compressed to a single slice of the provides size
+///
+/// a sample is a value from -1.0 to 1.0
+pub fn downSample(self: Self, allocator: std.mem.Allocator, num_of_samples: usize) ![]const f32 {
+    const res = try allocator.alloc(f32, num_of_samples);
+    var res_i: usize = 0;
+
+    const samples_in_down_sample = @divFloor(self.len, num_of_samples);
+
+    var i: usize = 0;
+    while (i <= self.len - samples_in_down_sample) : (i += samples_in_down_sample) {
+        var acc: f32 = 0;
+        for (0..samples_in_down_sample) |j| {
+            const sample = self.get(i + j);
+            if (@abs(acc) < @abs(sample)) {
+                acc = sample;
+            }
+        }
+        res[res_i] = acc;
+        res_i += 1;
+    }
+    return res;
+}
