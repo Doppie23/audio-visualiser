@@ -12,6 +12,8 @@ const win = @cImport({
 // https://learn.microsoft.com/en-us/windows/win32/coreaudio/loopback-recording
 // ported to zig
 
+const Self = @This();
+
 // uuids generated using getUuid.cpp
 // build using:
 // zig c++ getUuid.cpp -o getUuid.exe
@@ -44,15 +46,23 @@ const IID_IAudioCaptureClient = win.GUID{
     .Data4 = [_]u8{ 0xA4, 0xDE, 0x18, 0x5C, 0x39, 0x5C, 0xD3, 0x17 },
 };
 
-pub fn ReadAudio(audio_sink: anytype) !void {
-    const refTimesPerSec = 10000000;
-    const refTimesPerMillisec = 10000;
+const refTimesPerSec = 10000000;
+const refTimesPerMillisec = 10000;
 
+pEnumerator: *win.IMMDeviceEnumerator,
+pDevice: *win.IMMDevice,
+pAudioClient: *win.IAudioClient,
+pwfx: *win.WAVEFORMATEX,
+pCaptureClient: *win.IAudioCaptureClient,
+
+/// num of available frames in the buffer, used to clean up to old buffer
+numFramesAvailable: win.UINT32 = 0,
+
+pub fn init() !Self {
     var hr: win.HRESULT = 0;
 
     hr = win.CoInitialize(null);
     if (win.FAILED(hr)) return error.CoInitFailed;
-    defer win.CoUninitialize();
 
     var pEnumerator: *win.IMMDeviceEnumerator = undefined;
 
@@ -64,7 +74,6 @@ pub fn ReadAudio(audio_sink: anytype) !void {
         @ptrCast(&pEnumerator),
     );
     if (win.FAILED(hr)) return error.CoCreateFailed;
-    defer _ = pEnumerator.lpVtbl.*.Release.?(pEnumerator);
 
     var pDevice: *win.IMMDevice = undefined;
 
@@ -75,7 +84,6 @@ pub fn ReadAudio(audio_sink: anytype) !void {
         @ptrCast(&pDevice),
     );
     if (win.FAILED(hr)) return error.GetDefaultAudioEndpointFailed;
-    defer _ = pDevice.lpVtbl.*.Release.?(pDevice);
 
     var pAudioClient: *win.IAudioClient = undefined;
 
@@ -87,7 +95,6 @@ pub fn ReadAudio(audio_sink: anytype) !void {
         @ptrCast(&pAudioClient),
     );
     if (win.FAILED(hr)) return error.ActivateFailed;
-    defer _ = pAudioClient.lpVtbl.*.Release.?(pAudioClient);
 
     var pwfx: *win.WAVEFORMATEX = undefined;
 
@@ -96,7 +103,6 @@ pub fn ReadAudio(audio_sink: anytype) !void {
         @ptrCast(&pwfx),
     );
     if (win.FAILED(hr)) return error.GetMixFormatFailed;
-    defer win.CoTaskMemFree(pwfx);
 
     std.debug.print("{any}\n", .{pwfx.*});
 
@@ -129,55 +135,108 @@ pub fn ReadAudio(audio_sink: anytype) !void {
         @ptrCast(&pCaptureClient),
     );
     if (win.FAILED(hr)) return error.GetServiceFailed;
-    defer _ = pCaptureClient.lpVtbl.*.Release.?(pCaptureClient);
-
-    const hnsActualDuration: f64 = @as(f64, refTimesPerSec) * @as(f64, @floatFromInt(bufferFrameCount)) / @as(f64, @floatFromInt(pwfx.nSamplesPerSec));
 
     hr = pAudioClient.lpVtbl.*.Start.?(pAudioClient);
     if (win.FAILED(hr)) return error.AudioClientStartFailed;
 
-    var bDone = false;
+    return .{
+        .pEnumerator = pEnumerator,
+        .pDevice = pDevice,
+        .pAudioClient = pAudioClient,
+        .pwfx = pwfx,
+        .pCaptureClient = pCaptureClient,
+    };
+}
+
+pub fn deinit(self: Self) void {
+    _ = self.pAudioClient.lpVtbl.*.Stop.?(self.pAudioClient);
+    win.CoUninitialize();
+    _ = self.pEnumerator.lpVtbl.*.Release.?(self.pEnumerator);
+    _ = self.pDevice.lpVtbl.*.Release.?(self.pDevice);
+    _ = self.pAudioClient.lpVtbl.*.Release.?(self.pAudioClient);
+    win.CoTaskMemFree(self.pwfx);
+    _ = self.pCaptureClient.lpVtbl.*.Release.?(self.pCaptureClient);
+}
+
+const Buffer = struct {
+    pCaptureClient: *win.IAudioCaptureClient,
+    numFramesAvailable: win.UINT32,
+
+    value: []const u8,
+
+    pub fn deinit(self: Buffer) void {
+        _ = self.pCaptureClient.lpVtbl.*.ReleaseBuffer.?(self.pCaptureClient, self.numFramesAvailable);
+    }
+};
+
+pub fn getBuffer(self: *Self) !?[]const u8 {
+    var hr: win.HRESULT = 0;
+
+    // deinit previous buffer
+    if (self.numFramesAvailable != 0) {
+        hr = self.pCaptureClient.lpVtbl.*.ReleaseBuffer.?(self.pCaptureClient, self.numFramesAvailable);
+        if (win.FAILED(hr)) return error.ReleaseBufferFailed;
+    }
+
     var packetLength: win.UINT32 = 0;
-    var numFramesAvailable: win.UINT32 = 0;
     var flags: win.DWORD = undefined;
     var pData: [*]win.BYTE = undefined;
 
-    while (!bDone) {
-        // TODO: bring back sleep
-        // std.time.sleep(@intFromFloat((hnsActualDuration / refTimesPerMillisec / 2) * std.time.ns_per_ms));
-        _ = .{ hnsActualDuration, refTimesPerMillisec };
+    hr = self.pCaptureClient.lpVtbl.*.GetNextPacketSize.?(self.pCaptureClient, &packetLength);
+    if (win.FAILED(hr)) return error.GetNextPacketSizeFailed;
 
-        hr = pCaptureClient.lpVtbl.*.GetNextPacketSize.?(pCaptureClient, &packetLength);
-        if (win.FAILED(hr)) return error.GetNextPacketSizeFailed;
-
-        while (packetLength != 0 and !bDone) {
-            hr = pCaptureClient.lpVtbl.*.GetBuffer.?(
-                pCaptureClient,
-                @ptrCast(&pData),
-                @ptrCast(&numFramesAvailable),
-                @ptrCast(&flags),
-                null,
-                null,
-            );
-            if (win.FAILED(hr)) return error.GetBufferFailed;
-
-            // NOTE: i do not care
-            // if (flags & win.AUDCLNT_BUFFERFLAGS_SILENT) {
-            //     pData = null;
-            // }
-            //
-
-            const data = pData[0..numFramesAvailable];
-            bDone = audio_sink.onData(data);
-
-            hr = pCaptureClient.lpVtbl.*.ReleaseBuffer.?(pCaptureClient, numFramesAvailable);
-            if (win.FAILED(hr)) return error.ReleaseBufferFailed;
-
-            hr = pCaptureClient.lpVtbl.*.GetNextPacketSize.?(pCaptureClient, &packetLength);
-            if (win.FAILED(hr)) return error.GetNextPacketSizeFailed;
-        }
+    if (packetLength == 0) {
+        self.numFramesAvailable = 0;
+        return null;
     }
 
-    hr = pAudioClient.lpVtbl.*.Stop.?(pAudioClient);
-    if (win.FAILED(hr)) return error.AudioClientStopFailed;
+    hr = self.pCaptureClient.lpVtbl.*.GetBuffer.?(
+        self.pCaptureClient,
+        @ptrCast(&pData),
+        @ptrCast(&self.numFramesAvailable),
+        @ptrCast(&flags),
+        null,
+        null,
+    );
+    if (win.FAILED(hr)) return error.GetBufferFailed;
+
+    return pData[0..self.numFramesAvailable];
 }
+
+// pub fn readStream(self: Self) ![]const u8 {
+//     var packetLength: win.UINT32 = 0;
+//     var numFramesAvailable: win.UINT32 = 0;
+//     var flags: win.DWORD = undefined;
+//     var pData: [*]win.BYTE = undefined;
+//
+//     var hr: win.HRESULT = 0;
+//
+//     hr = self.pCaptureClient.lpVtbl.*.GetNextPacketSize.?(self.pCaptureClient, &packetLength);
+//     if (win.FAILED(hr)) return error.GetNextPacketSizeFailed;
+//
+//     while (packetLength != 0) {
+//         hr = self.pCaptureClient.lpVtbl.*.GetBuffer.?(
+//             self.pCaptureClient,
+//             @ptrCast(&pData),
+//             @ptrCast(&numFramesAvailable),
+//             @ptrCast(&flags),
+//             null,
+//             null,
+//         );
+//         if (win.FAILED(hr)) return error.GetBufferFailed;
+//
+//         // NOTE: i do not care
+//         // if (flags & win.AUDCLNT_BUFFERFLAGS_SILENT) {
+//         //     pData = null;
+//         // }
+//         //
+//
+//         const data = pData[0..numFramesAvailable];
+//
+//         hr = self.pCaptureClient.lpVtbl.*.ReleaseBuffer.?(self.pCaptureClient, numFramesAvailable);
+//         if (win.FAILED(hr)) return error.ReleaseBufferFailed;
+//
+//         hr = self.pCaptureClient.lpVtbl.*.GetNextPacketSize.?(self.pCaptureClient, &packetLength);
+//         if (win.FAILED(hr)) return error.GetNextPacketSizeFailed;
+//     }
+// }
