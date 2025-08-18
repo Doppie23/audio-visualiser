@@ -54,9 +54,7 @@ pDevice: *win.IMMDevice,
 pAudioClient: *win.IAudioClient,
 pwfx: *win.WAVEFORMATEX,
 pCaptureClient: *win.IAudioCaptureClient,
-
-/// num of available frames in the buffer, used to clean up to old buffer
-numFramesAvailable: win.UINT32 = 0,
+frameSize: usize,
 
 pub fn init() !Self {
     var hr: win.HRESULT = 0;
@@ -145,6 +143,7 @@ pub fn init() !Self {
         .pAudioClient = pAudioClient,
         .pwfx = pwfx,
         .pCaptureClient = pCaptureClient,
+        .frameSize = @as(usize, pwfx.nChannels) * @divExact(pwfx.wBitsPerSample, 8),
     };
 }
 
@@ -159,84 +158,44 @@ pub fn deinit(self: Self) void {
 }
 
 const Buffer = struct {
+    value: []const u8,
     pCaptureClient: *win.IAudioCaptureClient,
     numFramesAvailable: win.UINT32,
-
-    value: []const u8,
 
     pub fn deinit(self: Buffer) void {
         _ = self.pCaptureClient.lpVtbl.*.ReleaseBuffer.?(self.pCaptureClient, self.numFramesAvailable);
     }
 };
 
-pub fn getBuffer(self: *Self) !?[]const u8 {
+pub fn getBuffer(self: *Self) !?Buffer {
     var hr: win.HRESULT = 0;
-
-    // deinit previous buffer
-    if (self.numFramesAvailable != 0) {
-        hr = self.pCaptureClient.lpVtbl.*.ReleaseBuffer.?(self.pCaptureClient, self.numFramesAvailable);
-        if (win.FAILED(hr)) return error.ReleaseBufferFailed;
-    }
 
     var packetLength: win.UINT32 = 0;
     var flags: win.DWORD = undefined;
     var pData: [*]win.BYTE = undefined;
+    var numFramesAvailable: win.UINT32 = 0;
 
     hr = self.pCaptureClient.lpVtbl.*.GetNextPacketSize.?(self.pCaptureClient, &packetLength);
     if (win.FAILED(hr)) return error.GetNextPacketSizeFailed;
 
     if (packetLength == 0) {
-        self.numFramesAvailable = 0;
+        numFramesAvailable = 0;
         return null;
     }
 
     hr = self.pCaptureClient.lpVtbl.*.GetBuffer.?(
         self.pCaptureClient,
         @ptrCast(&pData),
-        @ptrCast(&self.numFramesAvailable),
+        @ptrCast(&numFramesAvailable),
         @ptrCast(&flags),
         null,
         null,
     );
     if (win.FAILED(hr)) return error.GetBufferFailed;
 
-    return pData[0..self.numFramesAvailable];
+    return .{
+        .value = pData[0 .. numFramesAvailable * self.frameSize],
+        .pCaptureClient = self.pCaptureClient,
+        .numFramesAvailable = numFramesAvailable,
+    };
 }
-
-// pub fn readStream(self: Self) ![]const u8 {
-//     var packetLength: win.UINT32 = 0;
-//     var numFramesAvailable: win.UINT32 = 0;
-//     var flags: win.DWORD = undefined;
-//     var pData: [*]win.BYTE = undefined;
-//
-//     var hr: win.HRESULT = 0;
-//
-//     hr = self.pCaptureClient.lpVtbl.*.GetNextPacketSize.?(self.pCaptureClient, &packetLength);
-//     if (win.FAILED(hr)) return error.GetNextPacketSizeFailed;
-//
-//     while (packetLength != 0) {
-//         hr = self.pCaptureClient.lpVtbl.*.GetBuffer.?(
-//             self.pCaptureClient,
-//             @ptrCast(&pData),
-//             @ptrCast(&numFramesAvailable),
-//             @ptrCast(&flags),
-//             null,
-//             null,
-//         );
-//         if (win.FAILED(hr)) return error.GetBufferFailed;
-//
-//         // NOTE: i do not care
-//         // if (flags & win.AUDCLNT_BUFFERFLAGS_SILENT) {
-//         //     pData = null;
-//         // }
-//         //
-//
-//         const data = pData[0..numFramesAvailable];
-//
-//         hr = self.pCaptureClient.lpVtbl.*.ReleaseBuffer.?(self.pCaptureClient, numFramesAvailable);
-//         if (win.FAILED(hr)) return error.ReleaseBufferFailed;
-//
-//         hr = self.pCaptureClient.lpVtbl.*.GetNextPacketSize.?(self.pCaptureClient, &packetLength);
-//         if (win.FAILED(hr)) return error.GetNextPacketSizeFailed;
-//     }
-// }
