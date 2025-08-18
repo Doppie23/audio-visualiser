@@ -17,7 +17,7 @@ pub fn main() !void {
         gpa,
         .{
             .duration_sec = 2,
-            .sample_rate = wasapi.pwfx.nSamplesPerSec / wasapi.frameSize,
+            .sample_rate = @intCast(wasapi.pwfx.nSamplesPerSec / wasapi.frameSize),
         },
     );
     defer audio_buffer.deinit();

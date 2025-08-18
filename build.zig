@@ -55,4 +55,22 @@ pub fn build(b: *std.Build) void {
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_exe_unit_tests.step);
+
+    // uuid command
+
+    const uuid_exe = b.addExecutable(.{
+        .name = "uuid",
+        .target = target,
+        .optimize = optimize,
+    });
+
+    uuid_exe.addCSourceFile(.{ .file = b.path("uuid.cpp") });
+    uuid_exe.linkLibCpp();
+
+    b.installArtifact(uuid_exe);
+
+    const uuid_run_step = b.addRunArtifact(uuid_exe);
+
+    const uuid_step = b.step("uuid", "Build and run uuid.cpp");
+    uuid_step.dependOn(&uuid_run_step.step);
 }

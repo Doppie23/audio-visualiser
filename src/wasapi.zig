@@ -14,9 +14,8 @@ const win = @cImport({
 
 const Self = @This();
 
-// uuids generated using getUuid.cpp
-// build using:
-// zig c++ getUuid.cpp -o getUuid.exe
+// uuids generated using uuid.cpp
+// zig build uuid
 
 const CLSID_MMDeviceEnumerator = win.GUID{
     .Data1 = 0xBCDE0395,

@@ -9,9 +9,9 @@ allocator: std.mem.Allocator,
 
 const Config = struct {
     /// the sample rate of the audio source
-    sample_rate: usize,
+    sample_rate: u32,
     /// number of seconds of audio to save
-    duration_sec: usize,
+    duration_sec: u32,
 };
 
 pub fn init(allocator: std.mem.Allocator, config: Config) !Self {
