@@ -50,7 +50,7 @@ pub fn main() !void {
             }
         }
 
-        const eq_samples = 1024;
+        const eq_samples = 4096;
 
         const eq_part = try audio_buffer.getCopy(gpa, audio_buffer.len - eq_samples, audio_buffer.len);
         defer gpa.free(eq_part);
@@ -66,18 +66,29 @@ pub fn main() !void {
 
         raylib.ClearBackground(raylib.RAYWHITE);
 
-        var x: i32 = 1;
+        // var x: i32 = 1;
+
+        var prev_x: i32 = 0;
+        var prev_y: i32 = 0;
 
         for (amplitudes, 0..) |amp, i| {
-            _ = i;
-            _ = bin_width;
+            const min_db = -80.0;
+            const db_amp = 20.0 * std.math.log10(amp + 1e-10); // Add small value to avoid log(0)
+            const clamped_db = @max(min_db, db_amp);
+            const normalized_db = (clamped_db - min_db) / (0.0 - min_db);
+            const length: i32 = @intFromFloat(normalized_db * @as(f32, @floatFromInt(height)));
 
-            const length: i32 = @intFromFloat(amp * @as(f32, @floatFromInt(height)));
+            const freq = @as(f32, @floatFromInt(i)) * bin_width;
+            const x = freqToX(freq, 20, 20000, width);
+            const y = starty - length;
+
             // if (amp > 1) {
             //     std.debug.print("freq: {d}, height: {d}, amp: {d}\n", .{ @as(f32, @floatFromInt(i)) * bin_width, length, amp });
             // }
-            raylib.DrawLine(x, starty, x, starty - length, raylib.BLUE);
-            x += 1;
+
+            raylib.DrawLine(prev_x, prev_y, x, y, raylib.BLUE);
+            prev_x = x;
+            prev_y = y;
         }
 
         // waveform drawing
@@ -107,4 +118,15 @@ pub fn main() !void {
     }
 
     raylib.CloseWindow();
+}
+
+fn freqToX(f: f32, f_min: f32, f_max: f32, width: i32) i32 {
+    if (f == 0) {
+        return 0;
+    }
+    const log_min = std.math.log10(f_min);
+    const log_max = std.math.log10(f_max);
+    const log_f = std.math.log10(f);
+    const x = (log_f - log_min) / (log_max - log_min) * @as(f32, @floatFromInt(width));
+    return @intFromFloat(x);
 }
