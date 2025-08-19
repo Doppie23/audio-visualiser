@@ -7,9 +7,12 @@ const raylib = @cImport({
 });
 const WidgetCtx = @import("widgets/Ctx.zig");
 
+var eq = @import("widgets/Eq.zig"){};
+var wf = @import("widgets/Waveform.zig"){};
+
 const widgets = .{
-    @import("widgets/Eq.zig"){ .cols = 1 },
-    @import("widgets/Waveform.zig"){ .cols = 1 },
+    .{ .cols = 1, .widget = &eq },
+    .{ .cols = 1, .widget = &wf },
 };
 
 const boost = 10;
@@ -69,11 +72,14 @@ pub fn main() !void {
         defer raylib.DrawFPS(0, 0);
 
         comptime var total_x_offset = 0;
-        inline for (widgets) |widget| {
+        inline for (widgets) |w| {
+            const cols = w.cols;
+            const widget = w.widget;
+
             const y_offset = 0;
             const x_offset = total_x_offset;
             const w_height = height;
-            const w_width = widget.cols * width / total_cols;
+            const w_width = cols * width / total_cols;
 
             total_x_offset += w_width;
 

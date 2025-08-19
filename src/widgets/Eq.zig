@@ -8,8 +8,6 @@ const fft = @import("../fft.zig");
 
 const Self = @This();
 
-cols: comptime_int,
-
 const eq_samples = 4096;
 const f_min = 20;
 const f_max = 20000;
