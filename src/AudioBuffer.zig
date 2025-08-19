@@ -58,6 +58,29 @@ pub fn writeSingle(self: *Self, sample: f32) void {
     self.write_index = (self.write_index + 1) % self.len;
 }
 
+pub fn getCopy(self: Self, allocator: std.mem.Allocator, from: usize, to: usize) ![]f32 {
+    std.debug.assert(from < to);
+
+    const len = to - from;
+    const res = try allocator.alloc(f32, len);
+
+    const real_from = (self.write_index + from) % self.len;
+    const real_to = (self.write_index + to) % self.len;
+
+    if (real_from < real_to) {
+        @memcpy(res, self.buffer[real_from..real_to]);
+        return res;
+    }
+
+    const buffer_to_end = self.buffer[real_from..self.len];
+    @memcpy(res[0..buffer_to_end.len], buffer_to_end);
+
+    const rest = self.buffer[0..real_to];
+    @memcpy(res[buffer_to_end.len..], rest);
+
+    return res;
+}
+
 pub fn get(self: Self, index: usize) f32 {
     return self.buffer[(self.write_index + index) % self.len];
 }
