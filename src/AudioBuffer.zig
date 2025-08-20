@@ -89,20 +89,24 @@ pub fn get(self: Self, index: usize) f32 {
 pub fn downSample(self: Self, buffer: []f32) !void {
     const num_of_samples = buffer.len;
 
-    var buffer_i: usize = 0;
-
     const samples_in_down_sample = @divFloor(self.len, num_of_samples);
 
     var i: usize = 0;
-    while (i <= self.len - samples_in_down_sample) : (i += samples_in_down_sample) {
+
+    for (buffer) |*b| {
         var acc: f32 = 0;
         for (0..samples_in_down_sample) |j| {
+            if (i + j >= self.len) {
+                break;
+            }
+
             const sample = self.get(i + j);
             if (@abs(acc) < @abs(sample)) {
                 acc = sample;
             }
         }
-        buffer[buffer_i] = acc;
-        buffer_i += 1;
+
+        b.* = acc;
+        i += samples_in_down_sample;
     }
 }

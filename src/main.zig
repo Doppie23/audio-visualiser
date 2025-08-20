@@ -12,7 +12,7 @@ var wf = @import("widgets/Waveform.zig"){};
 
 const widgets = .{
     .{ .cols = 1, .widget = &eq },
-    .{ .cols = 1, .widget = &wf },
+    // .{ .cols = 2, .widget = &wf },
 };
 
 const boost = 10;
@@ -40,9 +40,9 @@ pub fn main() !void {
         return error.OnlyTwoChannelDevicesSupported;
     }
 
-    const width = 800;
-    const height = 450;
-    raylib.InitWindow(width, height, "raylib [core] example - basic window");
+    raylib.SetConfigFlags(raylib.FLAG_WINDOW_RESIZABLE);
+
+    raylib.InitWindow(800, 450, "raylib [core] example - basic window");
 
     comptime var total_cols = 0;
     inline for (widgets) |w| {
@@ -50,6 +50,9 @@ pub fn main() !void {
     }
 
     while (!raylib.WindowShouldClose()) {
+        const height = raylib.GetRenderHeight();
+        const width = raylib.GetRenderWidth();
+
         while (try wasapi.getBuffer()) |buffer| {
             defer buffer.deinit();
             var i: usize = 0;
@@ -71,7 +74,7 @@ pub fn main() !void {
 
         defer raylib.DrawFPS(0, 0);
 
-        comptime var total_x_offset = 0;
+        var total_x_offset: i32 = 0;
         inline for (widgets) |w| {
             const cols = w.cols;
             const widget = w.widget;
@@ -79,7 +82,7 @@ pub fn main() !void {
             const y_offset = 0;
             const x_offset = total_x_offset;
             const w_height = height;
-            const w_width = cols * width / total_cols;
+            const w_width = @divTrunc(cols * width, total_cols);
 
             total_x_offset += w_width;
 
@@ -97,7 +100,7 @@ pub fn main() !void {
             const cam: raylib.Camera2D = .{
                 .offset = .{ .x = 0, .y = 0 },
                 .target = .{
-                    .x = -x_offset,
+                    .x = -@as(f32, @floatFromInt(x_offset)),
                     .y = -y_offset,
                 },
                 .rotation = 0,
