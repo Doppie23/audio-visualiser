@@ -68,12 +68,21 @@ pub fn draw(self: Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
     var prev_y: i32 = ctx.height;
 
     for (amplitudes, 0..) |amp, i| {
-        // audio log scaling
-        const db_amp = 20.0 * std.math.log10(amp + 1e-10); // Add small value to avoid log(0)
+        const freq = @as(f32, @floatFromInt(i)) * bin_width;
+
+        // audio amplitude log scaling
+        //
+        // NOTE:
+        // This might not all be technically correct, but it looks
+        // decently close to other visualizers.
+
+        const freq_comp = std.math.sqrt(freq + 1.0);
+        const boosted_amp = amp * freq_comp;
+
+        const db_amp = 20.0 * std.math.log10(boosted_amp + 1e-10); // Add small value to avoid log(0)
         const normalized_db = @max(0.0, (db_amp + 60.0) / 60.0); // Normalize -60dB to 0dB range
         const length: i32 = @intFromFloat(normalized_db * @as(f32, @floatFromInt(ctx.height)));
 
-        const freq = @as(f32, @floatFromInt(i)) * bin_width;
         const x = freqToX(freq, ctx.width);
         const y = ctx.height - length;
 
