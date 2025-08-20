@@ -66,22 +66,29 @@ fn cooleyTukey(arena: std.mem.Allocator, x: []Complex) !void {
     }
 }
 
-test "test" {
+test "Cooley Tukey" {
     const alloc = std.testing.allocator;
-    var x = [_]Complex{
+    var xs = [_]Complex{
         Complex{ .re = 1, .im = 0 },
         Complex{ .re = 2, .im = 0 },
         Complex{ .re = 3, .im = 0 },
         Complex{ .re = 4, .im = 0 },
     };
 
-    const arena = std.heap.ArenaAllocator.init(alloc);
+    const expected = [_]Complex{
+        Complex{ .re = 10, .im = 0 },
+        Complex{ .re = -2, .im = 2 },
+        Complex{ .re = -2, .im = 0 },
+        Complex{ .re = -2, .im = -2 },
+    };
+
+    var arena = std.heap.ArenaAllocator.init(alloc);
     defer arena.deinit();
 
-    try cooleyTukey(arena.allocator(), &x);
+    try cooleyTukey(arena.allocator(), &xs);
 
-    // TODO: actual test
-    for (x) |c| {
-        std.debug.print("re: {d}, im: {d}\n", .{ c.re, c.im });
+    for (xs, expected) |a, e| {
+        try std.testing.expectApproxEqRel(a.re, e.re, 0.001);
+        try std.testing.expectApproxEqRel(a.im, e.im, 0.001);
     }
 }
