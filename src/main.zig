@@ -12,11 +12,11 @@ var eq = @import("widgets/Eq.zig"){};
 var wf = @import("widgets/Waveform.zig"){};
 
 const widgets = .{
-    .{ .cols = 1, .widget = &eq },
-    .{ .cols = 1, .widget = &wf },
+    .{ .cols = 5, .widget = &eq },
+    .{ .cols = 2, .widget = &wf },
 };
 
-const boost = 10;
+const boost = 5;
 
 const theme = Theme.main();
 
@@ -45,7 +45,7 @@ pub fn main() !void {
 
     raylib.SetConfigFlags(raylib.FLAG_WINDOW_RESIZABLE);
 
-    raylib.InitWindow(800, 450, "raylib [core] example - basic window");
+    raylib.InitWindow(800, 200, "Audio Visualiser");
 
     comptime var total_cols = 0;
     inline for (widgets) |w| {
@@ -75,7 +75,7 @@ pub fn main() !void {
 
         raylib.ClearBackground(theme.background);
 
-        defer raylib.DrawFPS(0, 0);
+        // defer raylib.DrawFPS(0, 0);
 
         var total_x_offset: i32 = 0;
         inline for (widgets) |w| {
