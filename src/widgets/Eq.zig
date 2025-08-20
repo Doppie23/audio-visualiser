@@ -8,9 +8,25 @@ const fft = @import("../fft.zig");
 
 const Self = @This();
 
-const eq_samples = 4096;
+const fft_size = 4096;
+
 const f_min = 20;
 const f_max = 20000;
+
+var eq_part: [fft_size]f32 = undefined;
+
+// https://numpy.org/doc/stable/reference/generated/numpy.hanning.html
+const hann_table = blk: {
+    @setEvalBranchQuota(fft_size * 2);
+
+    const M: f32 = @floatFromInt(fft_size);
+    var table: [fft_size]f32 = undefined;
+
+    for (&table, 0..) |*b, n| {
+        b.* = 0.5 - 0.5 * std.math.cos(2 * std.math.pi * @as(f32, @floatFromInt(n)) / (M - 1));
+    }
+    break :blk table;
+};
 
 pub fn draw(self: Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
     _ = self;
@@ -38,20 +54,23 @@ pub fn draw(self: Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
         raylib.DrawText(text.ptr, text_x, y, font_size, raylib.GRAY);
     }
 
-    const eq_part = try ctx.audio_buffer.getCopy(allocator, ctx.audio_buffer.len - eq_samples, ctx.audio_buffer.len);
-    defer allocator.free(eq_part);
+    ctx.audio_buffer.copy(&eq_part, ctx.audio_buffer.len - fft_size, ctx.audio_buffer.len);
 
-    const amplitudes = try fft.amplitudes(allocator, eq_part);
+    // smooth using hann table
+    for (&eq_part, hann_table) |*e, h| {
+        e.* *= h;
+    }
+
+    const amplitudes = try fft.amplitudes(allocator, &eq_part);
     const bin_width = fft.freqBinWidth(eq_part.len, ctx.sample_rate);
 
     var prev_x: i32 = 0;
     var prev_y: i32 = ctx.height;
 
     for (amplitudes, 0..) |amp, i| {
-        const min_db = -80.0;
+        // audio log scaling
         const db_amp = 20.0 * std.math.log10(amp + 1e-10); // Add small value to avoid log(0)
-        const clamped_db = @max(min_db, db_amp);
-        const normalized_db = (clamped_db - min_db) / (0.0 - min_db);
+        const normalized_db = @max(0.0, (db_amp + 60.0) / 60.0); // Normalize -60dB to 0dB range
         const length: i32 = @intFromFloat(normalized_db * @as(f32, @floatFromInt(ctx.height)));
 
         const freq = @as(f32, @floatFromInt(i)) * bin_width;
