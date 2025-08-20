@@ -10,8 +10,8 @@ const Self = @This();
 
 const fft_size = 4096;
 
-const f_min = 20;
-const f_max = 20000;
+const f_min: comptime_float = 20.0;
+const f_max: comptime_float = 20000.0;
 
 var eq_part: [fft_size]f32 = undefined;
 
