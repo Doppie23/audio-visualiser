@@ -16,6 +16,10 @@ pub fn build(b: *std.Build) void {
         .root_module = exe_mod,
     });
 
+    if (optimize != .Debug and target.result.os.tag == .windows) {
+        exe.subsystem = .Windows;
+    }
+
     exe.linkLibC();
 
     // link windows libraries
