@@ -27,8 +27,8 @@ pub fn main() !void {
     var audio_buffer = try AudioBuffer.init(
         gpa,
         .{
-            .duration_sec = 2,
-            .sample_rate = @intCast(wasapi.pwfx.nSamplesPerSec / wasapi.frameSize),
+            .duration_sec = 4,
+            .sample_rate = @intCast(wasapi.pwfx.nSamplesPerSec),
         },
     );
     defer audio_buffer.deinit();
