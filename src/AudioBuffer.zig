@@ -95,6 +95,7 @@ pub fn downSample(self: Self, buffer: []f32) !void {
 
     for (buffer) |*b| {
         var acc: f32 = 0;
+        // TODO: fix this, its not consistent at bigger sizes
         for (0..samples_in_down_sample) |j| {
             if (i + j >= self.len) {
                 break;

@@ -43,7 +43,7 @@ pub fn draw(self: Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
         const text = try std.fmt.bufPrint(&buf, "{d}hz\x00", .{@trunc(freq)});
         const font_size = 16;
 
-        raylib.DrawLine(x, 0, x, ctx.height, raylib.GRAY);
+        raylib.DrawLine(x, 0, x, ctx.height, ctx.theme.secondary);
         const text_width = raylib.MeasureText(text.ptr, font_size);
 
         var text_x = x + 2;
@@ -51,7 +51,7 @@ pub fn draw(self: Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
             text_x = x - text_width - 2;
         }
 
-        raylib.DrawText(text.ptr, text_x, y, font_size, raylib.GRAY);
+        raylib.DrawText(text.ptr, text_x, y, font_size, ctx.theme.secondary);
     }
 
     ctx.audio_buffer.copy(&eq_part, ctx.audio_buffer.len - fft_size, ctx.audio_buffer.len);
@@ -86,7 +86,15 @@ pub fn draw(self: Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
         const x = freqToX(freq, ctx.width);
         const y = ctx.height - length;
 
-        raylib.DrawLine(prev_x, prev_y, x, y, raylib.BLUE);
+        const f_prev_x: f32 = @floatFromInt(prev_x);
+        const f_prev_y: f32 = @floatFromInt(prev_y);
+        const f_x: f32 = @floatFromInt(x);
+        const f_y: f32 = @floatFromInt(y);
+        const f_height: f32 = @floatFromInt(ctx.height);
+
+        raylib.DrawTriangle(.{ .x = f_prev_x, .y = f_height }, .{ .x = f_x, .y = f_height }, .{ .x = f_prev_x, .y = f_prev_y }, ctx.theme.primary);
+        raylib.DrawTriangle(.{ .x = f_prev_x, .y = f_prev_y }, .{ .x = f_x, .y = f_height }, .{ .x = f_x, .y = f_y }, ctx.theme.primary);
+
         prev_x = x;
         prev_y = y;
     }

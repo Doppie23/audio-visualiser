@@ -1,4 +1,5 @@
 const AudioBuffer = @import("../AudioBuffer.zig");
+const Theme = @import("../Theme.zig");
 const raylib = @cImport({
     @cInclude("raylib.h");
 });
@@ -11,6 +12,7 @@ x_offset: i32,
 y_offset: i32,
 sample_rate: u32,
 audio_buffer: AudioBuffer,
+theme: Theme,
 
 pub fn isMouseButtonDown(self: Self, button: i32) bool {
     if (!raylib.IsMouseButtonDown(button)) return false;

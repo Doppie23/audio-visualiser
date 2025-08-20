@@ -6,16 +6,19 @@ const raylib = @cImport({
     @cInclude("raylib.h");
 });
 const WidgetCtx = @import("widgets/Ctx.zig");
+const Theme = @import("Theme.zig");
 
 var eq = @import("widgets/Eq.zig"){};
 var wf = @import("widgets/Waveform.zig"){};
 
 const widgets = .{
     .{ .cols = 1, .widget = &eq },
-    // .{ .cols = 2, .widget = &wf },
+    .{ .cols = 1, .widget = &wf },
 };
 
 const boost = 10;
+
+const theme = Theme.main();
 
 pub fn main() !void {
     var gpa_alloc = std.heap.GeneralPurposeAllocator(.{}){};
@@ -70,7 +73,7 @@ pub fn main() !void {
         raylib.BeginDrawing();
         defer raylib.EndDrawing();
 
-        raylib.ClearBackground(raylib.RAYWHITE);
+        raylib.ClearBackground(theme.background);
 
         defer raylib.DrawFPS(0, 0);
 
@@ -93,6 +96,7 @@ pub fn main() !void {
                 .y_offset = y_offset,
                 .sample_rate = wasapi.pwfx.nSamplesPerSec,
                 .audio_buffer = audio_buffer,
+                .theme = theme,
             };
 
             raylib.BeginScissorMode(x_offset, y_offset, w_width, w_height);

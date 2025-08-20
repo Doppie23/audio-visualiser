@@ -25,13 +25,13 @@ pub fn draw(self: *Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
         try ctx.audio_buffer.downSample(self.down_sample_buffer.?);
     }
 
-    raylib.DrawLine(0, starty, ctx.width, starty, raylib.GRAY);
+    raylib.DrawLine(0, starty, ctx.width, starty, ctx.theme.primary);
 
     var x: i32 = 1;
 
     for (self.down_sample_buffer.?) |sample| {
         const length: i32 = @intFromFloat(sample * @as(f32, @floatFromInt(ctx.height)));
-        raylib.DrawLine(x, starty - length, x, starty + length, raylib.BLUE);
+        raylib.DrawLine(x, starty - length, x, starty + length, ctx.theme.primary);
         x += 1;
     }
 }
