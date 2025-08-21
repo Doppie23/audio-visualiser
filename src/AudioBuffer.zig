@@ -91,23 +91,28 @@ pub fn downSample(self: Self, buffer: []f32) !void {
 
     const samples_in_down_sample = @divFloor(self.len, num_of_samples);
 
-    var i: usize = 0;
+    var raw_index = self.write_index;
+
+    // hacky solution to fix down sample not looking consistent over multiple frames
+    //
+    // by alligning the raw_index to the same bin start offset each time
+    // the down samples will be more consistent
+    // still not great... but whatever
+    //
+    // a better solution would be to not down sample everything each frame
+    // and keep a separate down sampled buffer
+    while (raw_index % samples_in_down_sample != 0) : (raw_index = (raw_index + 1) % self.len) {}
 
     for (buffer) |*b| {
         var acc: f32 = 0;
-        // TODO: fix this, its not consistent at bigger sizes
         for (0..samples_in_down_sample) |j| {
-            if (i + j >= self.len) {
-                break;
-            }
-
-            const sample = self.get(i + j);
+            const sample = self.buffer[(raw_index + j) % self.len];
             if (@abs(acc) < @abs(sample)) {
                 acc = sample;
             }
         }
 
         b.* = acc;
-        i += samples_in_down_sample;
+        raw_index = (raw_index + samples_in_down_sample) % self.len;
     }
 }
