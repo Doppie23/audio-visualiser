@@ -7,6 +7,7 @@ const raylib = @cImport({
 });
 const WidgetCtx = @import("widgets/Ctx.zig");
 const Theme = @import("Theme.zig");
+const Slider = @import("Slider.zig");
 
 var eq = @import("widgets/Eq.zig"){};
 var wf = @import("widgets/Waveform.zig"){};
@@ -16,11 +17,16 @@ const widgets = .{
     .{ .cols = 2, .widget = &wf },
 };
 
-const boost = 5;
+// signal boost
+const max_boost = 10.0;
+const min_boost = 1.0;
 
 const theme = Theme.main();
 
 pub fn main() !void {
+    var boost: f32 = 5;
+    var boost_slider = Slider.init(boost / max_boost);
+
     var gpa_alloc = std.heap.GeneralPurposeAllocator(.{}){};
     const gpa = gpa_alloc.allocator();
 
@@ -56,6 +62,18 @@ pub fn main() !void {
         const height = raylib.GetRenderHeight();
         const width = raylib.GetRenderWidth();
 
+        const slider_h = 10;
+
+        const padding = 4;
+        const text = "Boost:";
+        const text_width = padding + raylib.MeasureText(text, slider_h);
+        raylib.DrawText(text, padding, padding, slider_h, theme.primary);
+
+        const changed = boost_slider.draw(theme, text_width + 4, padding, @divFloor(width, 4), slider_h);
+        if (changed) {
+            boost = @max(min_boost, max_boost * boost_slider.progress);
+        }
+
         while (try wasapi.getBuffer()) |buffer| {
             defer buffer.deinit();
             var i: usize = 0;
@@ -78,13 +96,14 @@ pub fn main() !void {
         // defer raylib.DrawFPS(0, 0);
 
         var total_x_offset: i32 = 0;
+
+        const y_offset = slider_h + padding;
+        const w_height = height - slider_h;
         inline for (widgets) |w| {
             const cols = w.cols;
             const widget = w.widget;
 
-            const y_offset = 0;
             const x_offset = total_x_offset;
-            const w_height = height;
             const w_width = @divTrunc(cols * width, total_cols);
 
             total_x_offset += w_width;
