@@ -8,12 +8,16 @@ const fft = @import("../fft.zig");
 
 const Self = @This();
 
-const fft_size = 4096;
+const fft_size = 4096 * 2;
 
 const f_min: comptime_float = 20.0;
 const f_max: comptime_float = 20000.0;
 
+// TODO: make this member, not global, same with smoothing
 var eq_part: [fft_size]f32 = undefined;
+
+const smoothing = 0.5; // 0..1 (higher = smoother, slower response)
+var smoothed: [fft_size / 2]f32 = .{1} ** (fft_size / 2);
 
 // https://numpy.org/doc/stable/reference/generated/numpy.hanning.html
 const hann_table = blk: {
@@ -28,30 +32,27 @@ const hann_table = blk: {
     break :blk table;
 };
 
+const mark_points = [_]comptime_float{
+    20,
+    50,
+    100,
+    200,
+    500,
+    1000,
+    2000,
+    5000,
+    10000,
+    20000,
+};
+
+// TODO: look into grouping on hard coded bands, and taking average in bin
+
 pub fn draw(self: Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
     _ = self;
 
-    if (ctx.isMouseButtonDown(raylib.MOUSE_BUTTON_LEFT)) {
-        const pos = ctx.getMousePosition();
-
-        const freq = xToFreq(pos.x, ctx.width);
-        const x: i32 = @intFromFloat(pos.x);
-        const y: i32 = 20;
-
-        // max size is 6, "20000\0"
-        var buf: [8]u8 = undefined;
-        const text = try std.fmt.bufPrint(&buf, "{d}hz\x00", .{@trunc(freq)});
-        const font_size = 16;
-
-        raylib.DrawLine(x, 0, x, ctx.height, ctx.theme.secondary);
-        const text_width = raylib.MeasureText(text.ptr, font_size);
-
-        var text_x = x + 2;
-        if (text_x + text_width > ctx.width) {
-            text_x = x - text_width - 2;
-        }
-
-        raylib.DrawText(text.ptr, text_x, y, font_size, ctx.theme.secondary);
+    inline for (mark_points) |freq| {
+        const x = freqToX(freq, ctx.width);
+        raylib.DrawLine(x, 0, x, ctx.height, ctx.theme.background_light);
     }
 
     ctx.audio_buffer.copy(&eq_part, ctx.audio_buffer.len - fft_size, ctx.audio_buffer.len);
@@ -61,13 +62,17 @@ pub fn draw(self: Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
         e.* *= h;
     }
 
-    const amplitudes = try fft.amplitudes(allocator, &eq_part);
+    const raw_amplitudes = try fft.amplitudes(allocator, &eq_part);
     const bin_width = fft.freqBinWidth(eq_part.len, ctx.sample_rate);
+
+    for (raw_amplitudes, 0..) |amp, i| {
+        smoothed[i] = smoothing * smoothed[i] + (1.0 - smoothing) * amp;
+    }
 
     var prev_x: i32 = 0;
     var prev_y: i32 = ctx.height;
 
-    for (amplitudes, 0..) |amp, i| {
+    for (smoothed, 0..) |amp, i| {
         const freq = @as(f32, @floatFromInt(i)) * bin_width;
 
         // audio amplitude log scaling
@@ -92,11 +97,36 @@ pub fn draw(self: Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
         const f_y: f32 = @floatFromInt(y);
         const f_height: f32 = @floatFromInt(ctx.height);
 
-        raylib.DrawTriangle(.{ .x = f_prev_x, .y = f_height }, .{ .x = f_x, .y = f_height }, .{ .x = f_prev_x, .y = f_prev_y }, ctx.theme.primary);
-        raylib.DrawTriangle(.{ .x = f_prev_x, .y = f_prev_y }, .{ .x = f_x, .y = f_height }, .{ .x = f_x, .y = f_y }, ctx.theme.primary);
+        raylib.DrawTriangle(.{ .x = f_prev_x, .y = f_height }, .{ .x = f_x, .y = f_height }, .{ .x = f_prev_x, .y = f_prev_y }, ctx.theme.primary_dim);
+        raylib.DrawTriangle(.{ .x = f_prev_x, .y = f_prev_y }, .{ .x = f_x, .y = f_height }, .{ .x = f_x, .y = f_y }, ctx.theme.primary_dim);
+
+        raylib.DrawLine(prev_x, prev_y, x, y, ctx.theme.primary);
 
         prev_x = x;
         prev_y = y;
+    }
+
+    if (ctx.isMouseButtonDown(raylib.MOUSE_BUTTON_LEFT)) {
+        const pos = ctx.getMousePosition();
+
+        const freq = xToFreq(pos.x, ctx.width);
+        const x: i32 = @intFromFloat(pos.x);
+        const y: i32 = 20;
+
+        // max size is 6, "20000\0"
+        var buf: [8]u8 = undefined;
+        const text = try std.fmt.bufPrint(&buf, "{d}hz\x00", .{@trunc(freq)});
+        const font_size = 16;
+
+        raylib.DrawLine(x, 0, x, ctx.height, ctx.theme.secondary);
+        const text_width = raylib.MeasureText(text.ptr, font_size);
+
+        var text_x = x + 2;
+        if (text_x + text_width > ctx.width) {
+            text_x = x - text_width - 2;
+        }
+
+        raylib.DrawText(text.ptr, text_x, y, font_size, ctx.theme.secondary);
     }
 }
 
