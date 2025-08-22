@@ -2,7 +2,9 @@ const Ctx = @import("Ctx.zig");
 const raylib = @cImport({
     @cInclude("raylib.h");
 });
-
+const rlgl = @cImport({
+    @cInclude("rlgl.h");
+});
 const std = @import("std");
 const fft = @import("../fft.zig");
 
@@ -71,6 +73,7 @@ pub fn draw(self: Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
 
     var prev_x: i32 = 0;
     var prev_y: i32 = ctx.height;
+    var prev_color: raylib.Color = raylib.WHITE;
 
     for (smoothed, 0..) |amp, i| {
         const freq = @as(f32, @floatFromInt(i)) * bin_width;
@@ -97,13 +100,21 @@ pub fn draw(self: Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
         const f_y: f32 = @floatFromInt(y);
         const f_height: f32 = @floatFromInt(ctx.height);
 
-        raylib.DrawTriangle(.{ .x = f_prev_x, .y = f_height }, .{ .x = f_x, .y = f_height }, .{ .x = f_prev_x, .y = f_prev_y }, ctx.theme.primary_dim);
-        raylib.DrawTriangle(.{ .x = f_prev_x, .y = f_prev_y }, .{ .x = f_x, .y = f_height }, .{ .x = f_x, .y = f_y }, ctx.theme.primary_dim);
+        const current_color = ctx.theme.amplitude_gradient.getColor(normalized_db);
+        drawQuadGradientH(
+            .{ .x = f_prev_x, .y = f_prev_y },
+            .{ .x = f_prev_x, .y = f_height },
+            .{ .x = f_x, .y = f_height },
+            .{ .x = f_x, .y = f_y },
+            prev_color,
+            current_color,
+        );
 
         raylib.DrawLine(prev_x, prev_y, x, y, ctx.theme.primary);
 
         prev_x = x;
         prev_y = y;
+        prev_color = current_color;
     }
 
     if (ctx.isMouseButtonDown(raylib.MOUSE_BUTTON_LEFT)) {
@@ -146,4 +157,23 @@ fn xToFreq(x: f32, width: i32) f32 {
     const log_max = std.math.log10(f_max);
     const log_f = (x / @as(f32, @floatFromInt(width))) * (log_max - log_min) + log_min;
     return std.math.pow(f32, 10, log_f);
+}
+
+/// counter clock, left top, left bottom, right bottom, right top
+fn drawQuadGradientH(v1: raylib.Vector2, v2: raylib.Vector2, v3: raylib.Vector2, v4: raylib.Vector2, left: raylib.Color, right: raylib.Color) void {
+    rlgl.rlBegin(rlgl.RL_QUADS);
+
+    rlgl.rlColor4ub(left.r, left.g, left.b, left.a);
+    rlgl.rlVertex2f(v1.x, v1.y);
+
+    rlgl.rlColor4ub(left.r, left.g, left.b, left.a);
+    rlgl.rlVertex2f(v2.x, v2.y);
+
+    rlgl.rlColor4ub(right.r, right.g, right.b, right.a);
+    rlgl.rlVertex2f(v3.x, v3.y);
+
+    rlgl.rlColor4ub(right.r, right.g, right.b, right.a);
+    rlgl.rlVertex2f(v4.x, v4.y);
+
+    rlgl.rlEnd();
 }
