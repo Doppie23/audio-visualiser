@@ -9,7 +9,10 @@ const WidgetCtx = @import("widgets/Ctx.zig");
 const Theme = @import("Theme.zig");
 const Slider = @import("Slider.zig");
 
-var eq = @import("widgets/Eq.zig"){};
+const fft_size = 8192;
+const smoothing = 0.5;
+
+var eq = @import("widgets/Eq.zig").Eq(fft_size, smoothing).init();
 var wf = @import("widgets/Waveform.zig"){};
 
 const widgets = .{
