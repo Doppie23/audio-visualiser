@@ -86,8 +86,32 @@ pub fn Eq(fft_size: usize, smoothing: f32) type {
             var prev_y: i32 = ctx.height;
             var prev_color: raylib.Color = raylib.WHITE;
 
-            for (self.smoothed, 0..) |amp, i| {
-                const freq = @as(f32, @floatFromInt(i)) * bin_width;
+            var idx: usize = 0;
+            while (idx < self.smoothed.len) {
+                const freq = @as(f32, @floatFromInt(idx)) * bin_width;
+                const x = freqToX(freq, ctx.width);
+
+                // higher frequencies are closer together,
+                // so the x value might stay the same for different amplitudes
+                // when this is the case we take the average between the amplitudes
+
+                var acc: f32 = self.smoothed[idx];
+                var seen: f32 = 1;
+
+                idx += 1;
+                while (idx < self.smoothed.len) {
+                    const next_freq = @as(f32, @floatFromInt(idx)) * bin_width;
+                    const next_x = freqToX(next_freq, ctx.width);
+                    if (next_x != x) {
+                        break;
+                    }
+                    acc += self.smoothed[idx];
+                    idx += 1;
+                    seen += 1;
+                }
+
+                // use the average as the final amplitude
+                const amp = acc / seen;
 
                 // audio amplitude log scaling
                 //
@@ -102,7 +126,6 @@ pub fn Eq(fft_size: usize, smoothing: f32) type {
                 const normalized_db = @max(0.0, (db_amp + 60.0) / 60.0); // Normalize -60dB to 0dB range
                 const length: i32 = @intFromFloat(normalized_db * @as(f32, @floatFromInt(ctx.height)));
 
-                const x = freqToX(freq, ctx.width);
                 const y = ctx.height - length;
 
                 const f_prev_x: f32 = @floatFromInt(prev_x);
@@ -128,6 +151,7 @@ pub fn Eq(fft_size: usize, smoothing: f32) type {
                 prev_color = current_color;
             }
 
+            // overlay on mouse down
             if (ctx.isMouseButtonDown(raylib.MOUSE_BUTTON_LEFT)) {
                 const pos = ctx.getMousePosition();
 

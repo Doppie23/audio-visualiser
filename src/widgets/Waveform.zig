@@ -9,6 +9,9 @@ const Self = @This();
 
 down_sample_buffer: ?[]f32 = null,
 
+// TODO: keep track of own down sampled audio buffer by adding new sampes each tick
+// will have to keep in mind case of not enough new samples to down sample
+
 pub fn draw(self: *Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
     const starty = @divTrunc(ctx.height, 2);
 
