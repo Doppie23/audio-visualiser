@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const Wasapi = @import("Wasapi.zig");
 const AudioBuffer = @import("AudioBuffer.zig");
 const fft = @import("fft.zig");
@@ -13,10 +14,12 @@ const fft_size = 8192;
 const smoothing = 0.5;
 
 var eq = @import("widgets/Eq.zig").Eq(fft_size, smoothing).init();
+var sm = @import("widgets/Stereometer.zig"){};
 var wf = @import("widgets/Waveform.zig"){};
 
 const widgets = .{
     .{ .cols = 5, .widget = &eq },
+    .{ .cols = 2, .widget = &sm },
     .{ .cols = 2, .widget = &wf },
 };
 
@@ -36,14 +39,15 @@ pub fn main() !void {
     var wasapi = try Wasapi.init();
     defer wasapi.deinit();
 
-    var audio_buffer = try AudioBuffer.init(
-        gpa,
-        .{
-            .duration_sec = 4,
-            .sample_rate = @intCast(wasapi.pwfx.nSamplesPerSec),
-        },
-    );
-    defer audio_buffer.deinit();
+    const cfg: AudioBuffer.Config = .{
+        .duration_sec = 4,
+        .sample_rate = @intCast(wasapi.pwfx.nSamplesPerSec),
+    };
+
+    var audio_buffer_l = try AudioBuffer.init(gpa, cfg);
+    defer audio_buffer_l.deinit();
+    var audio_buffer_r = try AudioBuffer.init(gpa, cfg);
+    defer audio_buffer_r.deinit();
 
     if (wasapi.pwfx.wBitsPerSample != 32) {
         return error.UnsupportedBitsPerSample;
@@ -84,10 +88,13 @@ pub fn main() !void {
             // NOTE: assume 32 bits per sample, and 2 channels
 
             while (i < buffer.value.len) : (i += 8) { // skip the right channel
-                const sample = buffer.value[i .. i + 4]; // only take left channel
-                const sample_f32: f32 = @bitCast(std.mem.readInt(u32, sample[0..4], .little));
+                const sample_l = buffer.value[i .. i + 4];
+                const sample_r = buffer.value[i + 4 .. i + 8];
+                const sample_l_f32: f32 = @bitCast(std.mem.readInt(u32, sample_l[0..4], .little));
+                const sample_r_f32: f32 = @bitCast(std.mem.readInt(u32, sample_r[0..4], .little));
 
-                audio_buffer.writeSingle(std.math.clamp(sample_f32 * boost, -1.0, 1.0));
+                audio_buffer_l.writeSingle(std.math.clamp(sample_l_f32 * boost, -1.0, 1.0));
+                audio_buffer_r.writeSingle(std.math.clamp(sample_r_f32 * boost, -1.0, 1.0));
             }
         }
 
@@ -96,7 +103,9 @@ pub fn main() !void {
 
         raylib.ClearBackground(theme.background);
 
-        // defer raylib.DrawFPS(0, 0);
+        defer if (builtin.mode == .Debug) {
+            raylib.DrawFPS(0, 0);
+        };
 
         var total_x_offset: i32 = 0;
 
@@ -117,7 +126,8 @@ pub fn main() !void {
                 .x_offset = x_offset,
                 .y_offset = y_offset,
                 .sample_rate = wasapi.pwfx.nSamplesPerSec,
-                .audio_buffer = audio_buffer,
+                .audio_buffer_l = audio_buffer_l,
+                .audio_buffer_r = audio_buffer_r,
                 .theme = theme,
             };
 

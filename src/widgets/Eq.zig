@@ -63,12 +63,14 @@ pub fn Eq(fft_size: usize, smoothing: f32) type {
         }
 
         pub fn draw(self: *Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
+            const audio_buffer = ctx.audio_buffer_l; // only look at left audio channel for now
+
             inline for (mark_points) |freq| {
                 const x = freqToX(freq, ctx.width);
                 raylib.DrawLine(x, 0, x, ctx.height, ctx.theme.background_light);
             }
 
-            ctx.audio_buffer.copy(&self.in, ctx.audio_buffer.len - self.in.len, ctx.audio_buffer.len);
+            audio_buffer.copy(&self.in, audio_buffer.len - self.in.len, audio_buffer.len);
 
             // smooth using hann table
             for (&self.in, self.hann_table) |*e, h| {

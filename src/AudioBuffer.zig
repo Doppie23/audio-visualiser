@@ -7,7 +7,7 @@ len: usize,
 write_index: usize,
 allocator: std.mem.Allocator,
 
-const Config = struct {
+pub const Config = struct {
     /// the sample rate of the audio source
     sample_rate: u32,
     /// number of seconds of audio to save

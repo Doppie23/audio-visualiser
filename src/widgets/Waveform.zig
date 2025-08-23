@@ -13,6 +13,8 @@ down_sample_buffer: ?[]f32 = null,
 // will have to keep in mind case of not enough new samples to down sample
 
 pub fn draw(self: *Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
+    const audio_buffer = ctx.audio_buffer_l;
+
     const starty = @divTrunc(ctx.height, 2);
 
     const num_of_samples: usize = @intCast(ctx.width);
@@ -25,7 +27,7 @@ pub fn draw(self: *Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
     }
 
     if (!ctx.isMouseButtonDown(raylib.MOUSE_BUTTON_LEFT)) {
-        try ctx.audio_buffer.downSample(self.down_sample_buffer.?);
+        try audio_buffer.downSample(self.down_sample_buffer.?);
     }
 
     raylib.DrawLine(0, starty, ctx.width, starty, ctx.theme.primary);

@@ -11,7 +11,8 @@ height: i32,
 x_offset: i32,
 y_offset: i32,
 sample_rate: u32,
-audio_buffer: AudioBuffer,
+audio_buffer_l: AudioBuffer,
+audio_buffer_r: AudioBuffer,
 theme: Theme,
 
 pub fn isMouseButtonDown(self: Self, button: i32) bool {
