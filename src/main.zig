@@ -72,7 +72,7 @@ pub fn main() !void {
         const slider_h = 10;
 
         const padding = 4;
-        const text = "Boost:";
+        const text = "Boost Signal:";
         const text_width = padding + raylib.MeasureText(text, slider_h);
         raylib.DrawText(text, padding, padding, slider_h, theme.primary);
 
