@@ -24,15 +24,19 @@ const widgets = .{
 };
 
 // signal boost
-const max_boost = 10.0;
-const min_boost = 1.0;
+const max_gain = 20.0;
+const min_gain = 1.0;
+var gain: f32 = 1;
+var gain_slider = Slider.init(min_gain, max_gain);
 
 const theme = Theme.main();
 
-pub fn main() !void {
-    var boost: f32 = 5;
-    var boost_slider = Slider.init(boost / max_boost);
+/// time needed to hover in topbar area for it to become visible
+const topbar_hover_time_threshold_sec = 0.5;
+/// current time hovering in topbar area
+var topbar_hover_time: f32 = 0;
 
+pub fn main() !void {
     var gpa_alloc = std.heap.GeneralPurposeAllocator(.{}){};
     const gpa = gpa_alloc.allocator();
 
@@ -69,18 +73,6 @@ pub fn main() !void {
         const height = raylib.GetRenderHeight();
         const width = raylib.GetRenderWidth();
 
-        const slider_h = 10;
-
-        const padding = 4;
-        const text = "Boost Signal:";
-        const text_width = padding + raylib.MeasureText(text, slider_h);
-        raylib.DrawText(text, padding, padding, slider_h, theme.primary);
-
-        const changed = boost_slider.draw(theme, text_width + 4, padding, @divFloor(width, 4), slider_h);
-        if (changed) {
-            boost = @max(min_boost, max_boost * boost_slider.progress);
-        }
-
         while (try wasapi.getBuffer()) |buffer| {
             defer buffer.deinit();
             var i: usize = 0;
@@ -93,8 +85,8 @@ pub fn main() !void {
                 const sample_l_f32: f32 = @bitCast(std.mem.readInt(u32, sample_l[0..4], .little));
                 const sample_r_f32: f32 = @bitCast(std.mem.readInt(u32, sample_r[0..4], .little));
 
-                audio_buffer_l.writeSingle(std.math.clamp(sample_l_f32 * boost, -1.0, 1.0));
-                audio_buffer_r.writeSingle(std.math.clamp(sample_r_f32 * boost, -1.0, 1.0));
+                audio_buffer_l.writeSingle(std.math.clamp(sample_l_f32 * gain, -1.0, 1.0));
+                audio_buffer_r.writeSingle(std.math.clamp(sample_r_f32 * gain, -1.0, 1.0));
             }
         }
 
@@ -109,8 +101,8 @@ pub fn main() !void {
 
         var total_x_offset: i32 = 0;
 
-        const y_offset = slider_h + padding;
-        const w_height = height - slider_h;
+        const y_offset = 0;
+        const w_height = height - y_offset;
         inline for (widgets) |w| {
             const cols = w.cols;
             const widget = w.widget;
@@ -149,6 +141,37 @@ pub fn main() !void {
 
             raylib.EndMode2D();
             raylib.EndScissorMode();
+        }
+
+        // draw top bar
+        const slider_h = 10;
+        const padding = 4;
+        const topbar_height = slider_h + 2 * padding;
+
+        const mouse_y = raylib.GetMouseY();
+
+        const inside_topbar_area = mouse_y <= topbar_height or gain_slider.mouse_down_started;
+
+        var topbar_visible: bool = false;
+        if (inside_topbar_area) {
+            topbar_hover_time += raylib.GetFrameTime();
+            if (topbar_hover_time >= topbar_hover_time_threshold_sec) {
+                topbar_visible = true;
+            }
+        } else {
+            topbar_hover_time = 0.0;
+            topbar_visible = false;
+        }
+
+        if (topbar_visible) {
+            raylib.DrawRectangle(0, 0, width, topbar_height, theme.background);
+            raylib.DrawLine(0, topbar_height, width, topbar_height, theme.background_light);
+
+            const text = "Gain:";
+            const text_width = padding + raylib.MeasureText(text, slider_h);
+            raylib.DrawText(text, padding, padding, slider_h, theme.primary);
+
+            try gain_slider.draw(theme, text_width + 4, padding, @divFloor(width, 4), slider_h, &gain);
         }
     }
 
