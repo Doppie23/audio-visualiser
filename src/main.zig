@@ -8,7 +8,7 @@ const raylib = @cImport({
 });
 const WidgetCtx = @import("widgets/Ctx.zig");
 const Theme = @import("Theme.zig");
-const Slider = @import("Slider.zig");
+const ui = @import("ui.zig");
 
 const fft_size = 8192;
 const smoothing = 0.5;
@@ -23,18 +23,30 @@ const widgets = .{
     .{ .cols = 2, .widget = &wf },
 };
 
-// signal boost
-const max_gain = 20.0;
-const min_gain = 1.0;
-var gain: f32 = 1;
-var gain_slider = Slider.init(min_gain, max_gain);
-
 const theme = Theme.main();
+
+// --------------------------------------------------------------------------------
+// topbar config
 
 /// time needed to hover in topbar area for it to become visible
 const topbar_hover_time_threshold_sec = 0.5;
 /// current time hovering in topbar area
 var topbar_hover_time: f32 = 0;
+
+// signal boost
+const max_gain = 20.0;
+const min_gain = 1.0;
+var gain: f32 = 1;
+var gain_slider = ui.SliderH.init(min_gain, max_gain);
+
+const max_opacity = 1.0;
+const min_opacity = 0.1;
+var opacity: f32 = 1;
+var opacity_slider = ui.SliderH.init(min_opacity, max_opacity);
+
+var is_borderless = false;
+
+// --------------------------------------------------------------------------------
 
 pub fn main() !void {
     var gpa_alloc = std.heap.GeneralPurposeAllocator(.{}){};
@@ -171,7 +183,23 @@ pub fn main() !void {
             const text_width = padding + raylib.MeasureText(text, slider_h);
             raylib.DrawText(text, padding, padding, slider_h, theme.primary);
 
-            try gain_slider.draw(theme, text_width + 4, padding, @divFloor(width, 4), slider_h, &gain);
+            const slider_w = @divFloor(width, 4);
+            _ = try gain_slider.draw(theme, text_width + 4, padding, slider_w, slider_h, &gain);
+
+            const changed = try opacity_slider.draw(theme, width - slider_w - 40, padding, slider_w, slider_h, &opacity);
+            if (changed) {
+                raylib.SetWindowOpacity(opacity);
+            }
+
+            const new_value = ui.drawCheckbox(theme, width - slider_h - padding, padding, slider_h, slider_h, is_borderless);
+            if (new_value != is_borderless) {
+                is_borderless = new_value;
+                if (is_borderless) {
+                    raylib.SetWindowState(raylib.FLAG_WINDOW_UNDECORATED);
+                } else {
+                    raylib.ClearWindowState(raylib.FLAG_WINDOW_UNDECORATED);
+                }
+            }
         }
     }
 
