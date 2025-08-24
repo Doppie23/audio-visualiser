@@ -46,9 +46,18 @@ pub fn draw(self: Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
         const x = (l - r) / 2;
         const y = (l + r) / 2;
 
-        const sx = cx + @as(i32, @intFromFloat(x * radius));
-        const sy = cy + @as(i32, @intFromFloat(y * radius));
+        const c = clampDiamond(x * radius, y * radius, radius);
+
+        const sx = cx + @as(i32, @intFromFloat(c.x));
+        const sy = cy + @as(i32, @intFromFloat(c.y));
 
         raylib.DrawCircle(sx, sy, dot_radius, ctx.theme.primary);
     }
+}
+
+fn clampDiamond(x: f32, y: f32, r: f32) struct { x: f32, y: f32 } {
+    const m = @abs(x) + @abs(y);
+    if (m <= r or m == 0) return .{ .x = x, .y = y };
+    const s = r / m;
+    return .{ .x = x * s, .y = y * s };
 }

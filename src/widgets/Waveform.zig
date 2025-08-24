@@ -15,7 +15,7 @@ down_sample_buffer: ?[]f32 = null,
 pub fn draw(self: *Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
     const audio_buffer = ctx.audio_buffer_l;
 
-    const starty = @divTrunc(ctx.height, 2);
+    const half_height = @divTrunc(ctx.height, 2);
 
     const num_of_samples: usize = @intCast(ctx.width);
 
@@ -30,13 +30,13 @@ pub fn draw(self: *Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
         try audio_buffer.downSample(self.down_sample_buffer.?);
     }
 
-    raylib.DrawLine(0, starty, ctx.width, starty, ctx.theme.primary);
+    raylib.DrawLine(0, half_height, ctx.width, half_height, ctx.theme.primary);
 
     var x: i32 = 1;
 
     for (self.down_sample_buffer.?) |sample| {
-        const length: i32 = @intFromFloat(sample * @as(f32, @floatFromInt(ctx.height)));
-        raylib.DrawLine(x, starty - length, x, starty + length, ctx.theme.primary);
+        const length: i32 = @intFromFloat(sample * @as(f32, @floatFromInt(half_height)));
+        raylib.DrawLine(x, half_height - length, x, half_height + length, ctx.theme.primary);
         x += 1;
     }
 }

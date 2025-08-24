@@ -24,8 +24,6 @@ const mark_points = [_]comptime_float{
     20000,
 };
 
-// TODO: look into grouping on hard coded bands, and taking average in bin
-
 pub fn Eq(fft_size: usize, smoothing: f32) type {
     return struct {
         const Self = @This();
@@ -124,9 +122,10 @@ pub fn Eq(fft_size: usize, smoothing: f32) type {
                 const freq_comp = std.math.sqrt(freq + 1.0);
                 const boosted_amp = amp * freq_comp;
 
-                const db_amp = 20.0 * std.math.log10(boosted_amp + 1e-10); // Add small value to avoid log(0)
-                const normalized_db = @max(0.0, (db_amp + 60.0) / 60.0); // Normalize -60dB to 0dB range
-                const length: i32 = @intFromFloat(normalized_db * @as(f32, @floatFromInt(ctx.height)));
+                const db_amp = 20.0 * std.math.log10(boosted_amp + 1e-10); // add small value to avoid log(0)
+                const normalized_db = @max(0.0, (db_amp + 60.0) / 60.0); // normalize
+                const max_height = ctx.height - @divFloor(ctx.height, 5); // leave a bit of head room
+                const length: i32 = @intFromFloat(normalized_db * @as(f32, @floatFromInt(max_height)));
 
                 const y = ctx.height - length;
 
