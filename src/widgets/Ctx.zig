@@ -1,8 +1,6 @@
 const AudioBuffer = @import("../AudioBuffer.zig");
 const Theme = @import("../Theme.zig");
-const raylib = @cImport({
-    @cInclude("raylib.h");
-});
+const raylib = @import("../raylib.zig");
 
 const Self = @This();
 

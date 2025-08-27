@@ -3,9 +3,7 @@ const builtin = @import("builtin");
 const Wasapi = @import("Wasapi.zig");
 const AudioBuffer = @import("AudioBuffer.zig");
 const fft = @import("fft.zig");
-const raylib = @cImport({
-    @cInclude("raylib.h");
-});
+const raylib = @import("raylib.zig");
 const WidgetCtx = @import("widgets/Ctx.zig");
 const Theme = @import("Theme.zig");
 const ui = @import("ui.zig");
