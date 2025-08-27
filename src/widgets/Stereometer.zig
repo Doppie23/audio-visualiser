@@ -9,8 +9,10 @@ const size = 1024;
 
 const dot_radius = 1;
 
-pub fn draw(self: Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
-    _ = .{ self, allocator };
+circle_tex: ?raylib.struct_Texture = null,
+
+pub fn draw(self: *Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
+    _ = .{allocator};
 
     const cx = @divFloor(ctx.width, 2);
     const cy = @divFloor(ctx.height, 2);
@@ -36,6 +38,17 @@ pub fn draw(self: Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
     raylib.DrawLine(cx - half_r, cy + half_r, cx + half_r, cy - half_r, ctx.theme.background_light);
     raylib.DrawLine(cx - half_r, cy - half_r, cx + half_r, cy + half_r, ctx.theme.background_light);
 
+    // use same texture each frame,
+    // this is a lot cheaper than using DrawCircle each frame
+    if (self.circle_tex == null) {
+        const dia = 2 * dot_radius;
+        var circle_img = raylib.GenImageColor(dia, dia, raylib.BLANK);
+        raylib.ImageDrawCircle(@ptrCast(&circle_img), dot_radius, dot_radius, dot_radius, ctx.theme.primary);
+        self.circle_tex = raylib.LoadTextureFromImage(circle_img);
+        raylib.UnloadImage(circle_img);
+    }
+    const tex = self.circle_tex.?;
+
     var i: usize = 0;
     while (i < size) : (i += 1) {
         const l = ctx.audio_buffer_l.get(ctx.audio_buffer_l.len - size + i);
@@ -49,7 +62,7 @@ pub fn draw(self: Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
         const sx = cx + @as(i32, @intFromFloat(c.x));
         const sy = cy + @as(i32, @intFromFloat(c.y));
 
-        raylib.DrawCircle(sx, sy, dot_radius, ctx.theme.primary);
+        raylib.DrawTexture(tex, sx - dot_radius, sy - dot_radius, raylib.WHITE);
     }
 }
 
