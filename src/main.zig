@@ -32,7 +32,7 @@ const topbar_hover_time_threshold_sec = 0.5;
 var topbar_hover_time: f32 = 0;
 
 // signal boost
-const max_gain = 20.0;
+const max_gain = 100.0;
 const min_gain = 1.0;
 var gain: f32 = 1;
 var gain_slider = ui.SliderH.init(min_gain, max_gain);
@@ -184,7 +184,7 @@ pub fn main() !void {
             const text_width = padding + raylib.MeasureText(text, slider_h);
             raylib.DrawText(text, padding, padding, slider_h, theme.primary);
 
-            const slider_w = @divFloor(width, 4);
+            const slider_w = @divFloor(width, 3);
             _ = try gain_slider.draw(theme, text_width + 4, padding, slider_w, slider_h, &gain);
 
             const changed = try opacity_slider.draw(theme, width - slider_w - 40, padding, slider_w, slider_h, &opacity);
