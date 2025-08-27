@@ -82,37 +82,3 @@ pub fn copy(self: Self, buffer: []f32, from: usize, to: usize) void {
 pub fn get(self: Self, index: usize) f32 {
     return self.buffer[(self.write_index + index) % self.len];
 }
-
-/// returns all the samples compressed to a single slice of the provides size
-///
-/// a sample is a value from -1.0 to 1.0
-pub fn downSample(self: Self, buffer: []f32) !void {
-    const num_of_samples = buffer.len;
-
-    const samples_in_down_sample = @divFloor(self.len, num_of_samples);
-
-    var raw_index = self.write_index;
-
-    // hacky solution to fix down sample not looking consistent over multiple frames
-    //
-    // by alligning the raw_index to the same bin start offset each time
-    // the down samples will be more consistent
-    // still not great... but whatever
-    //
-    // a better solution would be to not down sample everything each frame
-    // and keep a separate down sampled buffer
-    while (raw_index % samples_in_down_sample != 0) : (raw_index = (raw_index + 1) % self.len) {}
-
-    for (buffer) |*b| {
-        var acc: f32 = 0;
-        for (0..samples_in_down_sample) |j| {
-            const sample = self.buffer[(raw_index + j) % self.len];
-            if (@abs(acc) < @abs(sample)) {
-                acc = sample;
-            }
-        }
-
-        b.* = acc;
-        raw_index = (raw_index + samples_in_down_sample) % self.len;
-    }
-}

@@ -83,6 +83,7 @@ pub fn main() !void {
         const height = raylib.GetRenderHeight();
         const width = raylib.GetRenderWidth();
 
+        var written: usize = 0;
         while (try wasapi.getBuffer()) |buffer| {
             defer buffer.deinit();
             var i: usize = 0;
@@ -97,6 +98,7 @@ pub fn main() !void {
 
                 audio_buffer_l.writeSingle(std.math.clamp(sample_l_f32 * gain, -1.0, 1.0));
                 audio_buffer_r.writeSingle(std.math.clamp(sample_r_f32 * gain, -1.0, 1.0));
+                written += 1;
             }
         }
 
@@ -128,6 +130,7 @@ pub fn main() !void {
                 .x_offset = x_offset,
                 .y_offset = y_offset,
                 .sample_rate = wasapi.pwfx.nSamplesPerSec,
+                .num_of_new_samples = written,
                 .audio_buffer_l = audio_buffer_l,
                 .audio_buffer_r = audio_buffer_r,
                 .theme = theme,
