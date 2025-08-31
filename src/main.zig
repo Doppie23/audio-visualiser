@@ -27,7 +27,7 @@ const theme = Theme.main();
 // topbar config
 
 /// time needed to hover in topbar area for it to become visible
-const topbar_hover_time_threshold_sec = 0.5;
+const topbar_hover_time_threshold_sec = 0.1;
 /// current time hovering in topbar area
 var topbar_hover_time: f32 = 0;
 
@@ -158,12 +158,12 @@ pub fn main() !void {
 
         // draw top bar
         const slider_h = 10;
-        const padding = 4;
+        const padding = 8;
         const topbar_height = slider_h + 2 * padding;
 
         const mouse_y = raylib.GetMouseY();
 
-        const inside_topbar_area = mouse_y <= topbar_height or gain_slider.mouse_down_started;
+        const inside_topbar_area = (mouse_y <= topbar_height or gain_slider.mouse_down_started or opacity_slider.mouse_down_started) and raylib.IsCursorOnScreen();
 
         var topbar_visible: bool = false;
         if (inside_topbar_area) {
