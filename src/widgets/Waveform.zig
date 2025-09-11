@@ -1,7 +1,7 @@
 const AudioBuffer = @import("../AudioBuffer.zig");
 const Ctx = @import("Ctx.zig");
 const Theme = @import("../Theme.zig");
-const raylib = @import("../raylib.zig");
+const raylib = @import("../raylib.zig").rl;
 
 const std = @import("std");
 

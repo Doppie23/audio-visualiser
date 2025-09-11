@@ -1,3 +1,3 @@
-pub usingnamespace @cImport({
+pub const rl = @cImport({
     @cInclude("raylib.h");
 });

@@ -6,7 +6,6 @@ const tests = [_][]const u8{
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-
     const optimize = b.standardOptimizeOption(.{});
 
     const exe_mod = b.createModule(.{
@@ -36,8 +35,6 @@ pub fn build(b: *std.Build) void {
     const raylib_dep = b.dependency("raylib", .{
         .target = target,
         .optimize = optimize,
-        .shared = false,
-        //.linux_display_backend = .X11,
     });
     const raylib = raylib_dep.artifact("raylib");
     exe.linkLibrary(raylib);
@@ -73,11 +70,14 @@ pub fn build(b: *std.Build) void {
     }
 
     // uuid command
+    const uuid_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
 
     const uuid_exe = b.addExecutable(.{
         .name = "uuid",
-        .target = target,
-        .optimize = optimize,
+        .root_module = uuid_mod,
     });
 
     uuid_exe.addCSourceFile(.{ .file = b.path("uuid.cpp") });
