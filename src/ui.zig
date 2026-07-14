@@ -1,6 +1,6 @@
 const std = @import("std");
 const Theme = @import("Theme.zig");
-const raylib = @import("raylib.zig").rl;
+const raylib = @import("raylib");
 
 pub const Checkbox = struct {};
 

@@ -1,12 +1,5 @@
 const std = @import("std");
-
-const win = @cImport({
-    @cInclude("windows.h");
-    @cInclude("mmdeviceapi.h");
-    @cInclude("audioclient.h");
-    @cInclude("avrt.h");
-    @cInclude("stdio.h");
-});
+const win = @import("win");
 
 // https://learn.microsoft.com/en-us/windows/win32/coreaudio/capturing-a-stream
 // https://learn.microsoft.com/en-us/windows/win32/coreaudio/loopback-recording

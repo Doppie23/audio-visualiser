@@ -1,5 +1,5 @@
 const std = @import("std");
-const raylib = @import("raylib.zig").rl;
+const raylib = @import("raylib");
 
 const Color = raylib.Color;
 const Self = @This();

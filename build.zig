@@ -8,10 +8,54 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const raylib_dep = b.dependency("raylib", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const raylib = raylib_dep.artifact("raylib");
+
+    const raylib_translate_c = b.addTranslateC(.{
+        .root_source_file = raylib_dep.path("src/raylib.h"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const rlgl_translate_c = b.addTranslateC(.{
+        .root_source_file = raylib_dep.path("src/rlgl.h"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const win_translate_c = b.addTranslateC(.{
+        .root_source_file = b.path("src/win.h"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    win_translate_c.linkSystemLibrary("ole32", .{});
+    win_translate_c.linkSystemLibrary("oleAut32", .{});
+    win_translate_c.linkSystemLibrary("avrt", .{});
+    win_translate_c.linkSystemLibrary("uuid", .{});
+
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
+        .imports = &.{
+            .{
+                .name = "raylib",
+                .module = raylib_translate_c.createModule(),
+            },
+            .{
+                .name = "rlgl",
+                .module = rlgl_translate_c.createModule(),
+            },
+            .{
+                .name = "win",
+                .module = win_translate_c.createModule(),
+            },
+        },
     });
 
     const exe = b.addExecutable(.{
@@ -23,21 +67,7 @@ pub fn build(b: *std.Build) void {
         exe.subsystem = .Windows;
     }
 
-    exe.linkLibC();
-
-    // link windows libraries
-    exe.linkSystemLibrary("ole32");
-    exe.linkSystemLibrary("oleAut32");
-    exe.linkSystemLibrary("avrt");
-    exe.linkSystemLibrary("uuid");
-
-    // raylib
-    const raylib_dep = b.dependency("raylib", .{
-        .target = target,
-        .optimize = optimize,
-    });
-    const raylib = raylib_dep.artifact("raylib");
-    exe.linkLibrary(raylib);
+    exe.root_module.linkLibrary(raylib);
 
     b.installArtifact(exe);
 
@@ -60,6 +90,7 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path(path),
             .target = target,
             .optimize = optimize,
+            .link_libc = true,
         });
         const exe_unit_tests = b.addTest(.{
             .root_module = mod,
@@ -73,6 +104,7 @@ pub fn build(b: *std.Build) void {
     const uuid_mod = b.createModule(.{
         .target = target,
         .optimize = optimize,
+        .link_libcpp = true,
     });
 
     const uuid_exe = b.addExecutable(.{
@@ -80,8 +112,7 @@ pub fn build(b: *std.Build) void {
         .root_module = uuid_mod,
     });
 
-    uuid_exe.addCSourceFile(.{ .file = b.path("uuid.cpp") });
-    uuid_exe.linkLibCpp();
+    uuid_exe.root_module.addCSourceFile(.{ .file = b.path("uuid.cpp") });
 
     b.installArtifact(uuid_exe);
 

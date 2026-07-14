@@ -3,7 +3,7 @@ const builtin = @import("builtin");
 const Wasapi = @import("Wasapi.zig");
 const AudioBuffer = @import("AudioBuffer.zig");
 const fft = @import("fft.zig");
-const raylib = @import("raylib.zig").rl;
+const raylib = @import("raylib");
 const WidgetCtx = @import("widgets/Ctx.zig");
 const Theme = @import("Theme.zig");
 const ui = @import("ui.zig");
@@ -47,7 +47,7 @@ var is_borderless = false;
 // --------------------------------------------------------------------------------
 
 pub fn main() !void {
-    var gpa_alloc = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa_alloc = std.heap.DebugAllocator(.{}){};
     const gpa = gpa_alloc.allocator();
 
     var wasapi = try Wasapi.init();

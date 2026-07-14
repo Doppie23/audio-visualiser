@@ -6,7 +6,7 @@ A desktop audio visualiser. Currently Windows only.
 
 ## Dependencies
 
-- Zig `0.15.1`
+- Zig `0.16.0`
 - Raylib
 
 ## Features

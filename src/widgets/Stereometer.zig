@@ -1,6 +1,6 @@
 const std = @import("std");
 const Ctx = @import("Ctx.zig");
-const raylib = @import("../raylib.zig").rl;
+const raylib = @import("raylib");
 
 const Self = @This();
 

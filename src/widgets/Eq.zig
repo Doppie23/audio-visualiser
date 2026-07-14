@@ -1,8 +1,6 @@
 const Ctx = @import("Ctx.zig");
-const raylib = @import("../raylib.zig").rl;
-const rlgl = @cImport({
-    @cInclude("rlgl.h");
-});
+const raylib = @import("raylib");
+const rlgl = @import("rlgl");
 const std = @import("std");
 const fft = @import("../fft.zig");
 
