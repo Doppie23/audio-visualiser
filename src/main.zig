@@ -48,9 +48,34 @@ var is_borderless = false;
 
 // --------------------------------------------------------------------------------
 
-pub fn main() !void {
-    var gpa_alloc = std.heap.DebugAllocator(.{}){};
-    const gpa = gpa_alloc.allocator();
+const Mode = union(enum) {
+    Wasapi,
+    File: struct {
+        file_path: [:0]const u8,
+        music: raylib.Music = undefined,
+        wave_samples: []f32 = undefined,
+        wave_frame_count: usize = 0,
+        wave_channels: usize = 0,
+        last_frame_written: usize = 0,
+    },
+};
+
+pub fn main(init: std.process.Init) !void {
+    const gpa = init.gpa;
+
+    var mode: Mode = blk: {
+        var args = try init.minimal.args.iterateAllocator(gpa);
+
+        std.debug.assert(args.skip());
+        if (args.next()) |arg| {
+            break :blk .{
+                .File = .{
+                    .file_path = arg,
+                },
+            };
+        }
+        break :blk Mode.Wasapi;
+    };
 
     var wasapi = try Wasapi.init();
     defer wasapi.deinit();
@@ -76,6 +101,33 @@ pub fn main() !void {
 
     raylib.InitWindow(800, 200, "Audio Visualiser");
 
+    switch (mode) {
+        .File => |*data| {
+            const file = data.file_path;
+            // file extension is always at the end, so this cast should be save
+            const file_type: [:0]const u8 = @ptrCast(std.fs.path.extension(file));
+            std.debug.assert(@as([*:0]const u8, @ptrCast(file_type))[file_type.len] == 0);
+
+            raylib.InitAudioDevice();
+
+            var data_size: i32 = 0;
+            const file_data = raylib.LoadFileData(file, &data_size);
+
+            const wave = raylib.LoadWaveFromMemory(file_type, file_data, data_size);
+            const samples_ptr = raylib.LoadWaveSamples(wave);
+            data.wave_samples = samples_ptr[0 .. wave.frameCount * wave.channels];
+            data.wave_frame_count = wave.frameCount;
+            data.wave_channels = wave.channels;
+
+            var music = raylib.LoadMusicStreamFromMemory(file_type, file_data, data_size);
+            music.looping = false;
+            raylib.PlayMusicStream(music);
+
+            data.music = music;
+        },
+        .Wasapi => {},
+    }
+
     comptime var total_cols = 0;
     inline for (widgets) |w| {
         total_cols += w.cols;
@@ -89,22 +141,43 @@ pub fn main() !void {
         const width = raylib.GetRenderWidth();
 
         var written: usize = 0;
-        while (try wasapi.getBuffer()) |buffer| {
-            defer buffer.deinit();
-            var i: usize = 0;
+        switch (mode) {
+            .Wasapi => {
+                while (try wasapi.getBuffer()) |buffer| {
+                    defer buffer.deinit();
+                    var i: usize = 0;
 
-            // NOTE: assume 32 bits per sample, and 2 channels
+                    // NOTE: assume 32 bits per sample, and 2 channels
 
-            while (i < buffer.value.len) : (i += 8) { // skip the right channel
-                const sample_l = buffer.value[i .. i + 4];
-                const sample_r = buffer.value[i + 4 .. i + 8];
-                const sample_l_f32: f32 = @bitCast(std.mem.readInt(u32, sample_l[0..4], .little));
-                const sample_r_f32: f32 = @bitCast(std.mem.readInt(u32, sample_r[0..4], .little));
+                    while (i < buffer.value.len) : (i += 8) { // skip the right channel
+                        const sample_l = buffer.value[i .. i + 4];
+                        const sample_r = buffer.value[i + 4 .. i + 8];
+                        const sample_l_f32: f32 = @bitCast(std.mem.readInt(u32, sample_l[0..4], .little));
+                        const sample_r_f32: f32 = @bitCast(std.mem.readInt(u32, sample_r[0..4], .little));
 
-                audio_buffer_l.writeSingle(std.math.clamp(sample_l_f32 * gain, -1.0, 1.0));
-                audio_buffer_r.writeSingle(std.math.clamp(sample_r_f32 * gain, -1.0, 1.0));
-                written += 1;
-            }
+                        audio_buffer_l.writeSingle(std.math.clamp(sample_l_f32 * gain, -1.0, 1.0));
+                        audio_buffer_r.writeSingle(std.math.clamp(sample_r_f32 * gain, -1.0, 1.0));
+                        written += 1;
+                    }
+                }
+            },
+            .File => |*data| {
+                raylib.UpdateMusicStream(data.music);
+
+                const time_played_sec = raylib.GetMusicTimePlayed(data.music);
+                const target_frame_f = time_played_sec * @as(f32, @floatFromInt(data.music.stream.sampleRate));
+                const target_frame = @min(@as(usize, @intFromFloat(target_frame_f)), data.wave_frame_count);
+
+                while (data.last_frame_written < target_frame) : (data.last_frame_written += 1) {
+                    const idx = data.last_frame_written * data.wave_channels;
+                    const l = data.wave_samples[idx];
+                    const r = if (data.wave_channels > 1) data.wave_samples[idx + 1] else l;
+
+                    audio_buffer_l.writeSingle(std.math.clamp(l * gain, -1.0, 1.0));
+                    audio_buffer_r.writeSingle(std.math.clamp(r * gain, -1.0, 1.0));
+                    written += 1;
+                }
+            },
         }
 
         raylib.BeginDrawing();
