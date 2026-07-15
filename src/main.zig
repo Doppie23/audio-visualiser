@@ -14,10 +14,12 @@ const smoothing = 0.5;
 var eq = @import("widgets/Eq.zig").Eq(fft_size, smoothing).init();
 var sm = @import("widgets/Stereometer.zig"){};
 var wf = @import("widgets/Waveform.zig"){};
+var os = @import("widgets/Oscilloscope.zig"){ .smoothing = 0.9 };
 
 const widgets = .{
     .{ .cols = 5, .widget = &eq },
     .{ .cols = 2, .widget = &sm },
+    .{ .cols = 2, .widget = &os },
     .{ .cols = 2, .widget = &wf },
 };
 
