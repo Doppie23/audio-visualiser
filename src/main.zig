@@ -81,6 +81,9 @@ pub fn main() !void {
         total_cols += w.cols;
     }
 
+    const fps = raylib.GetMonitorRefreshRate(raylib.GetCurrentMonitor());
+    raylib.SetTargetFPS(fps);
+
     while (!raylib.WindowShouldClose()) {
         const height = raylib.GetRenderHeight();
         const width = raylib.GetRenderWidth();
