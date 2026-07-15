@@ -10,14 +10,14 @@ const Self = @This();
 /// down sample that does not have enough samples yet
 /// to go into the down sampled buffer
 const Intermediate = struct {
-    value: f32,
+    sum_of_squares: f32,
     num_of_samples: usize,
 };
 
-intermediate_l: Intermediate = .{ .value = 0, .num_of_samples = 0 },
+intermediate_l: Intermediate = .{ .sum_of_squares = 0, .num_of_samples = 0 },
 downsampled_l: ?AudioBuffer = null,
 
-intermediate_r: Intermediate = .{ .value = 0, .num_of_samples = 0 },
+intermediate_r: Intermediate = .{ .sum_of_squares = 0, .num_of_samples = 0 },
 downsampled_r: ?AudioBuffer = null,
 
 pub fn draw(self: *Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
@@ -32,10 +32,9 @@ pub fn draw(self: *Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
     }
 
     const max_height = quarter_height;
-    const padding = 4;
 
-    drawWaveform(self.downsampled_l.?, half_height - max_height - padding, max_height, ctx.theme);
-    drawWaveform(self.downsampled_r.?, half_height + max_height + padding, max_height, ctx.theme);
+    drawWaveform(self.downsampled_l.?, half_height - max_height, max_height, ctx.theme);
+    drawWaveform(self.downsampled_r.?, half_height + max_height, max_height, ctx.theme);
 }
 
 fn downSampleNewData(allocator: std.mem.Allocator, audio_buffer: AudioBuffer, downsampled: *?AudioBuffer, intermediate: *Intermediate, new_samples: usize, size: usize) !void {
@@ -56,7 +55,7 @@ fn downSampleNewData(allocator: std.mem.Allocator, audio_buffer: AudioBuffer, do
         @memset(downsampled.*.?.buffer, 0);
     } else {
         const buffer = audio_buffer;
-        const down = &downsampled.*.?; // this might not be the best way...
+        const down = &downsampled.*.?;
 
         const samples_in_down_sample = @divFloor(buffer.len, down.len);
 
@@ -66,14 +65,13 @@ fn downSampleNewData(allocator: std.mem.Allocator, audio_buffer: AudioBuffer, do
         while (i < buffer.len) : (i += 1) {
             const sample = buffer.get(i);
 
-            if (@abs(intermediate.value) < @abs(sample)) {
-                intermediate.value = sample;
-            }
+            intermediate.sum_of_squares += sample * sample;
             intermediate.num_of_samples += 1;
 
             if (intermediate.num_of_samples >= samples_in_down_sample) {
-                down.writeSingle(intermediate.value);
-                intermediate.* = .{ .num_of_samples = 0, .value = 0 };
+                const mean_square = intermediate.sum_of_squares / @as(f32, @floatFromInt(intermediate.num_of_samples));
+                down.writeSingle(@sqrt(mean_square));
+                intermediate.* = .{ .num_of_samples = 0, .sum_of_squares = 0 };
             }
         }
     }
