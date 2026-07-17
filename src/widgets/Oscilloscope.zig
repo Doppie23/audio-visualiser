@@ -10,8 +10,14 @@ const Self = @This();
 smoothing: f32,
 smoothed: ?[]f32 = null,
 
+pub fn deinit(self: Self, allocator: std.mem.Allocator) void {
+    if (self.smoothed) |s| {
+        allocator.free(s);
+    }
+}
+
 pub fn draw(self: *Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
-    _ = .{ self, allocator };
+    _ = .{self};
     const len = ctx.audio_buffer_l.len;
 
     if (self.smoothed == null or self.smoothed.?.len != ctx.width) {

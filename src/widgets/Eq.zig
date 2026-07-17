@@ -2,7 +2,7 @@ const Ctx = @import("Ctx.zig");
 const raylib = @import("raylib");
 const rlgl = @import("rlgl");
 const std = @import("std");
-const fft = @import("../fft.zig");
+const Fft = @import("../fft.zig");
 
 const f_min: comptime_float = 20.0;
 const f_max: comptime_float = 20000.0;
@@ -20,10 +20,11 @@ const mark_points = [_]comptime_float{
     20000,
 };
 
-pub fn Eq(fft_size: usize, smoothing: f32) type {
+pub fn Eq(comptime fft_size: usize, smoothing: f32) type {
     return struct {
         const Self = @This();
 
+        fft: ?Fft,
         in: [fft_size]f32,
         smoothing: f32,
         smoothed: [fft_size / 2]f32,
@@ -53,10 +54,22 @@ pub fn Eq(fft_size: usize, smoothing: f32) type {
                 .smoothing = smoothing,
                 .smoothed = smoothed,
                 .hann_table = hann_table,
+                .fft = null,
             };
         }
 
+        pub fn deinit(self: Self, allocator: std.mem.Allocator) void {
+            _ = allocator;
+            if (self.fft) |f| {
+                f.deinit();
+            }
+        }
+
         pub fn draw(self: *Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
+            if (self.fft == null) {
+                self.fft = try Fft.init(fft_size, allocator);
+            }
+
             const audio_buffer = ctx.audio_buffer_l; // only look at left audio channel for now
 
             inline for (mark_points) |freq| {
@@ -71,8 +84,8 @@ pub fn Eq(fft_size: usize, smoothing: f32) type {
                 e.* *= h;
             }
 
-            const raw_amplitudes = try fft.amplitudes(allocator, &self.in);
-            const bin_width = fft.freqBinWidth(self.in.len, ctx.sample_rate);
+            const raw_amplitudes = try self.fft.?.amplitudes(&self.in);
+            const bin_width = Fft.freqBinWidth(self.in.len, ctx.sample_rate);
 
             for (raw_amplitudes, 0..) |amp, i| {
                 self.smoothed[i] = self.smoothing * self.smoothed[i] + (1.0 - self.smoothing) * amp;

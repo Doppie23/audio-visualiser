@@ -3,20 +3,43 @@ const math = std.math;
 const pi = math.pi;
 const Complex = math.Complex(f32);
 
+const Self = @This();
+
+fba: std.heap.FixedBufferAllocator,
+gpa: std.mem.Allocator,
+
+pub fn init(comptime fft_size: comptime_int, gpa: std.mem.Allocator) !Self {
+    const recursive_levels = math.log2(fft_size) + 1;
+    const entries_needed = recursive_levels * fft_size;
+
+    const buffer = try gpa.alloc(Complex, entries_needed);
+
+    const fba = std.heap.FixedBufferAllocator.init(@ptrCast(buffer));
+
+    return .{
+        .fba = fba,
+        .gpa = gpa,
+    };
+}
+
+pub fn deinit(self: Self) void {
+    self.gpa.free(self.fba.buffer);
+}
+
 // modifies the samples in place, returns a slice to the provided samples array with the amplitude values
-pub fn amplitudes(allocator: std.mem.Allocator, samples: []f32) ![]f32 {
+pub fn amplitudes(self: *Self, samples: []f32) ![]f32 {
+    self.fba.reset();
+
     const n = samples.len;
 
-    var arena_alloc = std.heap.ArenaAllocator.init(allocator);
-    defer arena_alloc.deinit();
-    const arena = arena_alloc.allocator();
+    var fba = self.fba.allocator();
 
-    const complex = try arena.alloc(Complex, samples.len);
+    const complex = try fba.alloc(Complex, samples.len);
     for (samples, 0..) |sample, i| {
         complex[i] = .{ .re = sample, .im = 0 };
     }
 
-    try cooleyTukey(arena, complex);
+    try self.cooleyTukey(complex);
 
     const half_complex = complex[0 .. complex.len / 2];
 
@@ -31,29 +54,28 @@ pub fn freqBinWidth(num_of_samples: usize, sample_rate: u32) f32 {
     return @as(f32, @floatFromInt(sample_rate)) / @as(f32, @floatFromInt(num_of_samples));
 }
 
-fn cooleyTukey(arena: std.mem.Allocator, x: []Complex) !void {
+fn cooleyTukey(self: *Self, x: []Complex) !void {
+    var fba = self.fba.allocator();
     const n = x.len;
 
     if (n <= 1) return;
 
     const even_len = n / 2;
-    var even = try arena.alloc(Complex, even_len);
-    // dont free, assume the memory gets freed with the arena
+    var even = try fba.alloc(Complex, even_len);
 
     for (0..even_len) |i| {
         even[i] = x[i * 2];
     }
 
     const odd_len = even_len;
-    var odd = try arena.alloc(Complex, odd_len);
-    // again, dont free
+    var odd = try fba.alloc(Complex, odd_len);
 
     for (0..odd_len) |i| {
         odd[i] = x[i * 2 + 1];
     }
 
-    try cooleyTukey(arena, even);
-    try cooleyTukey(arena, odd);
+    try self.cooleyTukey(even);
+    try self.cooleyTukey(odd);
 
     for (0..even_len) |k| {
         const t = (Complex{
@@ -82,6 +104,7 @@ test "Cooley Tukey" {
         Complex{ .re = -2, .im = -2 },
     };
 
+    // use an arena for testing, instead of a FBA.
     var arena = std.heap.ArenaAllocator.init(alloc);
     defer arena.deinit();
 

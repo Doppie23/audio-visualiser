@@ -2,7 +2,6 @@ const std = @import("std");
 const builtin = @import("builtin");
 const Wasapi = @import("Wasapi.zig");
 const AudioBuffer = @import("AudioBuffer.zig");
-const fft = @import("fft.zig");
 const raylib = @import("raylib");
 const WidgetCtx = @import("widgets/Ctx.zig");
 const Theme = @import("Theme.zig");
@@ -61,10 +60,8 @@ const Mode = union(enum) {
 };
 
 pub fn main(init: std.process.Init) !void {
-    const gpa = init.gpa;
-
     var mode: Mode = blk: {
-        var args = try init.minimal.args.iterateAllocator(gpa);
+        var args = try init.minimal.args.iterateAllocator(init.arena.allocator());
 
         std.debug.assert(args.skip());
         if (args.next()) |arg| {
@@ -77,6 +74,12 @@ pub fn main(init: std.process.Init) !void {
         break :blk Mode.Wasapi;
     };
 
+    defer {
+        inline for (widgets) |w| {
+            w.widget.deinit(init.gpa);
+        }
+    }
+
     var wasapi = try Wasapi.init();
     defer wasapi.deinit();
 
@@ -85,9 +88,9 @@ pub fn main(init: std.process.Init) !void {
         .sample_rate = @intCast(wasapi.pwfx.nSamplesPerSec),
     };
 
-    var audio_buffer_l = try AudioBuffer.init(gpa, cfg);
+    var audio_buffer_l = try AudioBuffer.init(init.arena.allocator(), cfg);
     defer audio_buffer_l.deinit();
-    var audio_buffer_r = try AudioBuffer.init(gpa, cfg);
+    var audio_buffer_r = try AudioBuffer.init(init.arena.allocator(), cfg);
     defer audio_buffer_r.deinit();
 
     if (wasapi.pwfx.wBitsPerSample != 32) {
@@ -228,7 +231,7 @@ pub fn main(init: std.process.Init) !void {
 
             raylib.BeginMode2D(cam);
 
-            try widget.draw(gpa, ctx);
+            try widget.draw(init.gpa, ctx);
 
             raylib.EndMode2D();
             raylib.EndScissorMode();

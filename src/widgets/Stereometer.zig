@@ -11,6 +11,10 @@ const dot_radius = 1;
 
 circle_tex: ?raylib.struct_Texture = null,
 
+pub fn deinit(self: Self, allocator: std.mem.Allocator) void {
+    _ = .{ self, allocator };
+}
+
 pub fn draw(self: *Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
     _ = .{allocator};
 

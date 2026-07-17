@@ -20,6 +20,16 @@ downsampled_l: ?AudioBuffer = null,
 intermediate_r: Intermediate = .{ .sum_of_squares = 0, .num_of_samples = 0 },
 downsampled_r: ?AudioBuffer = null,
 
+pub fn deinit(self: Self, allocator: std.mem.Allocator) void {
+    _ = allocator;
+    if (self.downsampled_l) |d| {
+        d.deinit();
+    }
+    if (self.downsampled_r) |d| {
+        d.deinit();
+    }
+}
+
 pub fn draw(self: *Self, allocator: std.mem.Allocator, ctx: Ctx) !void {
     const half_height = @divTrunc(ctx.height, 2);
     const quarter_height = @divTrunc(half_height, 2);
